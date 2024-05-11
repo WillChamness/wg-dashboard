@@ -1,0 +1,25 @@
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "AllowedHosts": "*",
+  "ConnectionStrings": {
+    "WireguardDb": "Data Source=localhost;Initial Catalog=WireguardDb;User ID=sa;Password=Password1;TrustServerCertificate=true"
+  },
+  "JwtSettings": {
+    "Issuer": "api.example.com",
+    "Audience": "mywebsite.example.com",
+    "Key": "MySecret256BitKeyaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "ListenSettings": {
+    "Address": "localhost",
+    "Port": 3000,
+    "Protocol": "http"
+  },
+  "DnsSettings": {
+    "BrowserUrlToApi": "http://localhost:3000"
+  }
+}

@@ -1,0 +1,6 @@
+@WgDashboardApi_HostAddress = http://localhost:5065
+
+GET {{WgDashboardApi_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
