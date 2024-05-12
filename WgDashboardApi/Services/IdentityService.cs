@@ -32,41 +32,41 @@ namespace WgDashboardApi.Services
         /// <summary>
         /// Retrieves the user from the database via the user's ID in the JWT token
         /// </summary>
-        /// <param name="context">The HTTP context containing the JWT token</param>
+        /// <param name="httpContext">The HTTP context containing the JWT token</param>
         /// <returns>The user that matches the user's ID if the user is found; otherwise null</returns>
-        public User? GetUserFromJwt(HttpContext context);
+        public User? GetUserFromJwt(HttpContext httpContext);
 
 
         /// <summary>
         /// Retrieves the user from the database via the user's ID in the JWT token
         /// </summary>
-        /// <param name="context">The HTTP context containing the JWT token</param>
+        /// <param name="httpContext">The HTTP context containing the JWT token</param>
         /// <returns>A task that resolves to the user that matches the ID if the user is found; otherwise a task that resolves to null</returns>
-        public Task<User?> GetUserFromJwtAsync(HttpContext context);
+        public Task<User?> GetUserFromJwtAsync(HttpContext httpContext);
 
 
         /// <summary>
         /// Retrieves the user's ID from the JWT token
         /// </summary>
-        /// <param name="context">The HTTP context containing the JWT token</param>
+        /// <param name="httpContext">The HTTP context containing the JWT token</param>
         /// <returns>The user's ID if the ID is found in the token; otherwise 0</returns>
-        public int GetUserIdFromJwt(HttpContext context);
+        public int GetUserIdFromJwt(HttpContext httpContext);
 
 
         /// <summary>
         /// Retrieves the user's username from the JWT token
         /// </summary>
-        /// <param name="context">The HTTP context containing the JWT token</param>
+        /// <param name="httpContext">The HTTP context containing the JWT token</param>
         /// <returns>The user's username if the username is found in the token; otherwise null</returns>
-        public string? GetUsernameFromJwt(HttpContext context);
+        public string? GetUsernameFromJwt(HttpContext httpContext);
 
 
         /// <summary>
         /// Retrieves the user's role from the JWT token
         /// </summary>
-        /// <param name="context">The HTTP context containing the JWT token</param>
+        /// <param name="httpContext">The HTTP context containing the JWT token</param>
         /// <returns>The user's role if the role is found in the token; otherwise an anonymous role</returns>
-        public string GetUserRoleFromJwt(HttpContext context);
+        public string GetUserRoleFromJwt(HttpContext httpContext);
     }
 
 
@@ -113,10 +113,10 @@ namespace WgDashboardApi.Services
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
 
-        public User? GetUserFromJwt(HttpContext context)
+        public User? GetUserFromJwt(HttpContext httpContext)
         {
             // get the user's ID from the token
-            var identity = context.User.Identity as ClaimsIdentity;
+            var identity = httpContext.User.Identity as ClaimsIdentity;
             if (identity == null)
                 return null;
 
@@ -128,10 +128,10 @@ namespace WgDashboardApi.Services
             return _context.Users.Where((user) => user.Id == userId).FirstOrDefault();
         }
 
-        public Task<User?> GetUserFromJwtAsync(HttpContext context)
+        public Task<User?> GetUserFromJwtAsync(HttpContext httpContext)
         {
             // get the user's ID from the token
-            var identity = context.User.Identity as ClaimsIdentity;
+            var identity = httpContext.User.Identity as ClaimsIdentity;
             if (identity is null)
                 return Task.FromResult<User?>(null);
 
@@ -144,9 +144,9 @@ namespace WgDashboardApi.Services
             return _context.Users.Where((user) => user.Id == userId).FirstOrDefaultAsync();
         }
 
-        public int GetUserIdFromJwt(HttpContext context)
+        public int GetUserIdFromJwt(HttpContext httpContext)
         {
-            var identity = context.User.Identity as ClaimsIdentity;
+            var identity = httpContext.User.Identity as ClaimsIdentity;
             if (identity is null)
                 return 0;
 
@@ -160,9 +160,9 @@ namespace WgDashboardApi.Services
 
         }
 
-        public string? GetUsernameFromJwt(HttpContext context)
+        public string? GetUsernameFromJwt(HttpContext httpContext)
         {
-            var identity = context.User.Identity as ClaimsIdentity;
+            var identity = httpContext.User.Identity as ClaimsIdentity;
             if (identity is null)
                 return null;
 
@@ -170,9 +170,9 @@ namespace WgDashboardApi.Services
             return identityClaims.FirstOrDefault((claim) => claim.Type == ClaimTypes.NameIdentifier)?.Value;
         }
 
-        public string GetUserRoleFromJwt(HttpContext context)
+        public string GetUserRoleFromJwt(HttpContext httpContext)
         {
-            var identity = context.User.Identity as ClaimsIdentity;
+            var identity = httpContext.User.Identity as ClaimsIdentity;
             if (identity is null)
                 return UserRoles.Anonymous;
 
