@@ -1,0 +1,82 @@
+﻿@page "/login"
+@using System.Text.Json
+@using System.Text
+@inject NavigationManager NavigationManager
+
+<h3>Login</h3>
+<hr />
+@if(loginFailed)
+{
+    <div class="row">
+        <div class="col-md-4">
+            <p class="text-danger">@loginFailedReason</p>
+            <br />
+        </div>
+    </div>
+}
+<div class="row">
+    <div class="col-md-4">
+        <form>
+            <div class="form-group">
+                <label for="login-username" class="control-label">Username:</label>
+                <input type="text" id="login-username" class="form-control" @bind=credentials.Username />
+            </div>
+            <br />
+            <div class="form-group">
+                <label for="login-password" class="control-label">Password:</label>
+                <input type="password" id="login-password" class="form-control" @bind=credentials.Password />
+            </div>
+            <br />
+            <div class="form-group">
+                <input type="submit" class="btn btn-primary" @onclick=SubmitLogin @onclick:preventDefault="true"></input>
+            </div>
+        </form>
+        <br />
+    </div>
+</div>
+
+@code {
+    private LoginRequest credentials = new LoginRequest();
+    private bool loginFailed = false;
+    private string loginFailedReason = "";
+
+    private async void SubmitLogin()
+    {
+        string jwt = ""; 
+
+        loginFailed = false;
+
+        // guard against bad input
+        if(string.IsNullOrEmpty(credentials.Username) || string.IsNullOrEmpty(credentials.Password))
+        {
+            loginFailed = true;
+            loginFailedReason = "Textbox cannot be empty";
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
+        string? authRoute = WebsiteConfig.GetSection("WireguardApiConfig").GetValue<string>("AuthRoute");
+        if (authRoute is not null)
+            authRoute += "/login";
+        else
+            authRoute = "/api/auth/login";
+
+        var json = JsonSerializer.Serialize(credentials);
+        HttpContent content = new StringContent(json, Encoding.UTF8, "application/json");
+        HttpResponseMessage response = await client.PostAsync(authRoute, content);
+        if(response.IsSuccessStatusCode)
+        {
+            jwt = (await response.Content.ReadAsStringAsync()).Replace("\"", "");
+            await LocalStorage.SetItemAsync("WireguardApiToken", jwt);
+            await AuthStateProvider.GetAuthenticationStateAsync();
+            NavigationManager.NavigateTo("/");
+        }
+        else
+        {
+            loginFailed = true;
+            loginFailedReason = (await response.Content.ReadAsStringAsync()).Replace("\"", "");
+            await InvokeAsync(StateHasChanged);
+        }
+
+    }
+}

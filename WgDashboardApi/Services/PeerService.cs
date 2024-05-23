@@ -88,7 +88,7 @@ namespace WgDashboardApi.Services
             IQueryable<PeerProfile> peers = _context.Users.Join(_context.Peers, (user) => user.Id, (peer) => peer.OwnerId,
                 (user, peer) => new PeerProfile()
                 {
-                    Id = user.Id,
+                    Id = peer.Id,
                     PublicKey = peer.PublicKey,
                     AllowedIPs = peer.AllowedIPs,
                     DeviceDescription = peer.DeviceDescription,
@@ -138,7 +138,7 @@ namespace WgDashboardApi.Services
                 _context.Peers, (user) => user.Id, (peer) => peer.OwnerId,
                     (user, peer) => new PeerProfile()
                     {
-                        Id = user.Id,
+                        Id = peer.Id,
                         PublicKey = peer.PublicKey,
                         AllowedIPs = peer.AllowedIPs,
                         DeviceDescription = peer.DeviceDescription,
@@ -147,7 +147,7 @@ namespace WgDashboardApi.Services
                         DeviceType = peer.DeviceType,
                     }
                 )
-                .Where((profile) => profile.OwnerUsername == owner.Username);
+                .Where((profile) => profile.OwnerUsername == owner.Username); // profile doesn't contain owner ID
 
             return peerProfiles;
         }

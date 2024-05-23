@@ -8,9 +8,9 @@ namespace WgDashboardApi.Services
 {
     public interface IUserService
     {
-        public Task<bool> CheckUserExists(int id);
         public IEnumerable<UserProfile> GetAllUsers();
         public Task<UserProfile?> GetUserProfileById(int id);
+        public Task<UserProfile?> GetUserProfileByUsername(string username);
         public Task UpdateUserProfile(int id, string? newUsername, string? newName, string? newRole);
         public Task DeleteUserById(int id);
     }
@@ -22,12 +22,6 @@ namespace WgDashboardApi.Services
         public UserService(WireguardDbContext dbContext)
         {
             this._context = dbContext;
-        }
-
-        public async Task<bool> CheckUserExists(int id)
-        {
-            User? user = await _context.Users.FindAsync(id);
-            return user != null;
         }
 
         public IEnumerable<UserProfile> GetAllUsers()
@@ -56,6 +50,21 @@ namespace WgDashboardApi.Services
                 Name = user.Name,
                 Role = user.Role,
             };
+        }
+        public async Task<UserProfile?> GetUserProfileByUsername(string username)
+        {
+            User? user = await _context.Users.Where((user) => user.Username == username).FirstOrDefaultAsync();
+            if (user is null)
+                return null;
+
+            return new UserProfile()
+            {
+                Id = user.Id,
+                Username = user.Username,
+                Name = user.Name,
+                Role = user.Role,
+            };
+
         }
 
         public async Task UpdateUserProfile(int id, string? newUsername, string? newName, string? newRole)

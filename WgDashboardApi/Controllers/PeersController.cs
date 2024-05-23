@@ -86,11 +86,11 @@ namespace WgDashboardApi.Controllers
         /// </summary>
         /// <param name="ownerId">The user's ID, taken from the URL</param>
         /// <returns>An HTTP 200 or 404 response</returns>
-        [HttpGet("owner/{id}")]
+        [HttpGet("owner/{ownerId}")]
         [Authorize(Roles = "admin,user")]
         [Produces("application/json")]
         [Consumes("application/json")]
-        public async Task<ActionResult<IEnumerable<Peer>>> GetPeersByOwnerId(int ownerId)
+        public async Task<ActionResult<IEnumerable<PeerProfile>>> GetPeersByOwnerId(int ownerId)
         {
             // guard against unauthorized user
             int userId = _identity.GetUserIdFromJwt(HttpContext);
@@ -104,6 +104,40 @@ namespace WgDashboardApi.Controllers
             // guard against no peers
             if(peers.Count() == 0)
                 return NotFound($"No peers attached to user with ID {ownerId}");
+
+            // success
+            return Ok(peers);
+        }
+
+        /// <summary>
+        /// <para>GET: /api/peers/owner/myuser</para>
+        /// 
+        /// <para>Searches for all peers whose owner's username is the one given</para>
+        /// </summary>
+        /// <param name="ownerUsername">The user's username, taken from the URL</param>
+        /// <returns>An HTTP 200 or 404 response</returns>
+        [HttpGet("/owner/username/{ownerUsername}")]
+        [Authorize(Roles = "admin,user")]
+        [Produces("application/json")]
+        [Consumes("application/json")]
+        public async Task<ActionResult<IEnumerable<PeerProfile>>> GetPeersByOwnerUsername(string ownerUsername)
+        {
+            // need to get the ID of the owner via the username to check if authorized
+            UserProfile? owner = await _users.GetUserProfileByUsername(ownerUsername);
+            if (owner is null)
+                return NotFound($"No peers attached to user with username {ownerUsername}");
+
+            // guard against unauthorized user
+            int userId = _identity.GetUserIdFromJwt(HttpContext);
+            string userRole = _identity.GetUserRoleFromJwt(HttpContext);
+            if(!_security.CheckUserAuthorized(owner.Id, userId, userRole))
+                return NotFound($"No peers attached to user with username {ownerUsername}");
+
+            // attempt to get peers
+            IEnumerable<PeerProfile> peers = await _peers.GetPeerProfilesByOwnerId(owner.Id);
+            // guard against no peers
+            if(peers.Count() == 0)
+                return NotFound($"No peers attached to user with username {ownerUsername}");
 
             // success
             return Ok(peers);

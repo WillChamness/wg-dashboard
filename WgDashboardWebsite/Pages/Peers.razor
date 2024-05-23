@@ -1,0 +1,270 @@
+﻿@page "/peers"
+@using System.Text.Json
+@using System.Net
+@inject IJSRuntime JsRuntime
+@attribute [Authorize(Roles = "admin,user")]
+
+<section id="top"></section>
+
+@if(AuthState.Role == UserRoles.Admin)
+{
+    <h3>All Wireguard Peers</h3>
+}
+else
+{
+    <h3>Your Wireguard Peers</h3>
+}
+<hr />
+@if(peers is null)
+{
+    <p>Loading...</p>
+}
+else
+{
+    @if(!ok)
+    {
+        <div class="row">
+            <div class="col-md-4">
+                <p class="text-danger">@notOkReason</p>
+            </div>
+        </div>
+    }
+    <br />
+    <div class="row" style="overflow-x: scroll; max-height: 350px; overflow-y: scroll">
+        <div class="col-md-12"> 
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Peer ID</th>
+                        <th>Public Key</th>
+                        <th>Allowed IPs</th>
+                        <th>Device Type</th>
+                        <th>Device Description</th>
+                        <th>Owner Name</th>
+                        <th>Owner Username</th>
+                        <th>Delete Peer</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @* use meaningless conditional for declaring a variable *@
+                    @if(true)
+                    {
+                        int i = 0; // using for loop causes overflow exception when searching for peers
+                        @foreach(PeerProfile peer in displayedPeers)
+                        {
+                            // when loop is done, i will maintian the state it last had, which is out of bounds
+                            // use a buffer to keep track of which index goes to which button
+                            int buffer = i;
+                            string backgroundColor = buffer % 2 == 0 ? "table-light" : "table-secondary";
+                            <tr class=@backgroundColor>
+                                <td>@peer.Id</td>
+                                <td>@peer.PublicKey</td>
+                                <td>@peer.AllowedIPs</td>
+                                <td>@peer.DeviceType</td>
+                                <td>@peer.DeviceDescription</td>
+                                <td>@peer.OwnerName</td>
+                                <td>@peer.OwnerUsername</td>
+                                <td><input type="button" class="btn btn-danger" value="Delete" @onclick="() => DeletePeer(buffer)" /></td>
+                            </tr>
+                            i++;
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <br />
+    @if(AuthState.Role == UserRoles.Admin)
+    {
+        <div class="row">
+            <div class="col-md-4">
+                <h3>Search for Wiregurad Peers</h3>
+            </div>
+        </div>
+        <br />
+        <div class="row">
+            <div class="col-md-4">
+                <form>
+                    <div class="form-group">
+                        <label for="peer-id" class="control-label">Peer ID:</label>
+                        <input type="text" id="peer-id" class="form-control" @oninput="(ChangeEventArgs e) => UpdatePeerIdSearch(e.Value?.ToString())" />
+                    </div>
+                    <br />
+                    <div class="form-group">
+                        <label for="peer-public-key" class="control-label">Peer Public Key:</label>
+                        <input type="text" id="peer-public-key" class="form-control" @oninput="(ChangeEventArgs e) => UpdatePublicKeySearch(e.Value?.ToString())" />
+                    </div>
+                    <br />
+                    <div class="form-group">
+                        <label for="peer-ip-address" class="control-label">Peer IP Address:</label>
+                        <input type="text" id="peer-ip-address" class="form-control" @oninput="(ChangeEventArgs e) => UpdateIpAddressSearch(e.Value?.ToString())" />
+                    </div>
+                    <br />
+                    <div class="form-group">
+                        <label for="peer-owner-username" class="control-label">Owner Username:</label>
+                        <input type="text" id="peer-owner-username" class="form-control" @oninput="(ChangeEventArgs e) => UpdateOwnerUsernameSearch(e.Value?.ToString())" />
+                    </div>
+                </form>
+            </div>
+        </div>
+    }
+}
+<br />
+<br />
+
+@code {
+    private List<PeerProfile>? peers = null;
+    private List<PeerProfile> displayedPeers = new List<PeerProfile>();
+    private SearchProfile profilesToSearch = new SearchProfile();
+    private bool ok = true;
+    private string notOkReason = "";
+
+    private class SearchProfile
+    {
+        public int? Id { get; set; }
+        public string? PublicKey { get; set; }
+        public string? AllowedIPs { get; set; }
+        public string? OwnerUsername { get; set; }
+    }
+    protected override async Task OnInitializedAsync()
+    {
+        await GetPeers();
+    }
+
+    private async Task GetPeers()
+    {
+        string? peersPath = null;
+        var apiConfig = WebsiteConfig.GetSection("WireguardApiConfig");
+
+        if (AuthState.Role == UserRoles.Admin)
+        {
+            peersPath = apiConfig.GetValue<string>("PeersRoute");
+            peersPath ??= "/api/peers";
+        }
+        else
+        {
+            peersPath = apiConfig.GetValue<string>("PeersByOwnerIdRoute");
+            peersPath ??= "/api/peers/owner";
+            peersPath += $"/{AuthState.Id}";
+        }
+
+        HttpResponseMessage response = await client.GetAsync(peersPath);
+
+        if(response.IsSuccessStatusCode)
+        {
+            peers = await response.Content.ReadFromJsonAsync<List<PeerProfile>>(
+                new JsonSerializerOptions() { PropertyNameCaseInsensitive = true }
+            ) ?? new List<PeerProfile>();
+            displayedPeers = peers;
+        }
+        else if(response.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            ok = false;
+            notOkReason = "The session has expired. Please signout and log back in.";
+            peers = new List<PeerProfile>();
+            await InvokeAsync(StateHasChanged);
+            await ScrollToTop();
+        }
+        else
+        {
+            ok = false;
+            notOkReason = (await response.Content.ReadAsStringAsync()).Replace("\"", "");
+            peers = new List<PeerProfile>();
+            await InvokeAsync(StateHasChanged);
+            await ScrollToTop();
+        }
+        IEnumerable<PeerProfile> a = peers!.Where((peer) => peer.AllowedIPs.Contains("19"));
+        foreach (PeerProfile x in a)
+        {
+            Console.WriteLine(x.AllowedIPs);
+        }
+    }
+
+    private async Task SearchProfiles()
+    {
+        IQueryable<PeerProfile> newPeersToDisplay = peers!.AsQueryable(); // validated to be not null by GetPeers()
+        Console.WriteLine(profilesToSearch.AllowedIPs);
+
+        // if invalid input, don't change what is on screen
+        if (profilesToSearch.Id is not null)
+            newPeersToDisplay = newPeersToDisplay.Where((peer) => peer.Id == profilesToSearch.Id);
+        if (!string.IsNullOrEmpty(profilesToSearch.PublicKey))
+            newPeersToDisplay = newPeersToDisplay.Where((peer) => peer.PublicKey.Contains(profilesToSearch.PublicKey));
+        if (!string.IsNullOrEmpty(profilesToSearch.AllowedIPs))
+            newPeersToDisplay = newPeersToDisplay.Where((peer) => peer.AllowedIPs.Contains(profilesToSearch.AllowedIPs));
+        if (!string.IsNullOrEmpty(profilesToSearch.OwnerUsername))
+            newPeersToDisplay = newPeersToDisplay.Where((peer) => peer.OwnerUsername.Contains(profilesToSearch.OwnerUsername));
+
+
+        displayedPeers = newPeersToDisplay.ToList();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task UpdatePeerIdSearch(string? newId)
+    {
+        int parsedId = 0;
+        if(!int.TryParse(newId, out parsedId))
+            profilesToSearch.Id = null;
+        else
+            profilesToSearch.Id = parsedId;
+
+        await SearchProfiles();
+    }
+
+    private async Task UpdatePublicKeySearch(string? newPk)
+    {
+        profilesToSearch.PublicKey = newPk;
+        await SearchProfiles();
+    }
+
+    private async Task UpdateIpAddressSearch(string? newIp)
+    {
+        profilesToSearch.AllowedIPs= newIp;
+        await SearchProfiles();
+    }
+
+    private async Task UpdateOwnerUsernameSearch(string? newUsername)
+    {
+        profilesToSearch.OwnerUsername = newUsername;
+        await SearchProfiles();
+    }
+
+    private async Task DeletePeer(int displayedPeersIndex)
+    {
+        await ScrollToTop();
+        bool confirmed = await JsRuntime.InvokeAsync<bool>("confirm", "Are you sure? This will delete the peer forever.");
+        if (!confirmed)
+            return;
+
+        PeerProfile peerToDelete = displayedPeers[displayedPeersIndex];
+
+        int idToDelete = peerToDelete.Id;
+        string peersPath = WebsiteConfig.GetSection("WireguardApiConfig").GetValue<string>("PeersPath")
+            ?? "/api/peers";
+        peersPath += $"/{idToDelete}";
+
+        HttpResponseMessage response = await client.DeleteAsync(peersPath);
+
+        if(response.IsSuccessStatusCode)
+        {
+            await GetPeers();
+            await SearchProfiles(); // re-run user's search in case they searched before deleting peer
+        }
+        else
+        {
+            ok = false;
+            notOkReason = (await response.Content.ReadAsStringAsync()).Replace("\"", "");
+            await InvokeAsync(StateHasChanged);
+            await ScrollToTop();
+        }
+
+    }
+
+    private async Task ScrollToTop()
+    {
+        string id = "top";
+        var js = "window.scrollToId";
+        await JsRuntime.InvokeVoidAsync(js, id);
+    }
+}
+

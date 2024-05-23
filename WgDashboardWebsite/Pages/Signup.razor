@@ -1,0 +1,88 @@
+﻿@page "/signup"
+@inject NavigationManager NavigationManager
+
+<h3>Signup</h3>
+<hr />
+@if(signupFailed)
+{
+    <div class="row">
+        <div class="col-md-4">
+                <p class="text-danger">@signupFailedReason</p>
+                <br />
+        </div>
+    </div>
+}
+<div class="row">
+    <div class="col-md-4">
+        <form>
+            <div class="form-group">
+                <label for="signup-username" class="form-control-label">Username:</label>
+                <input type="text" id="signup-username" class="form-control" @bind=signupRequest.Username />
+            </div>
+            <br />
+            <div class="form-group">
+                <label for="signup-password" class="form-control-label">Password:</label>
+                <input type="password" id="signup-password" class="form-control" @bind=signupRequest.Password/>
+            </div>
+            <br />
+            <div class="form-group">
+                <label for="signup-confirm-password" class="form-control-label">Password:</label>
+                <input type="password" id="signup-confirm-password" class="form-control" @bind=confirmPassword/>
+            </div>
+            <br />
+            <div class="form-group">
+                <label for="signup-name" class="control-label">Name (optional):</label>
+                <input id="signup=name" type="text" class="form-control" @bind=signupRequest.Name />
+            </div>
+            <br />
+            <input type="submit" class="btn btn-primary" @onclick=SubmitSignup @onclick:preventDefault="true" value="Submit" />
+        </form>
+    </div>
+</div>
+
+@code {
+    private SignupRequest signupRequest = new SignupRequest();
+    private string confirmPassword = "";
+    private bool signupFailed = false;
+    private string signupFailedReason = "";
+
+    private async Task SubmitSignup()
+    {
+        if(string.IsNullOrEmpty(signupRequest.Username) || string.IsNullOrEmpty(signupRequest.Password) || string.IsNullOrEmpty(confirmPassword))
+        {
+            signupFailed = true;
+            signupFailedReason = "Textbox cannot be empty";
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+        if(signupRequest.Password != confirmPassword)
+        {
+            signupFailed = true;
+            signupFailedReason = "Passwords do not match";
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
+        if (signupRequest.Name == "")
+            signupRequest.Name = null;
+
+        string? signupRoute = WebsiteConfig.GetSection("WireguardApiConfig").GetValue<string>("AuthRoute");
+        if (signupRoute is not null)
+            signupRoute += "/signup";
+        else
+            signupRoute = "/api/auth/signup";
+
+        HttpResponseMessage response = await client.PostAsJsonAsync(signupRoute, signupRequest);
+
+        if(response.IsSuccessStatusCode)
+        {
+            NavigationManager.NavigateTo("/login");
+        }
+        else
+        {
+            signupFailed = true;
+            signupFailedReason = (await response.Content.ReadAsStringAsync()).Replace("\"", "");
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+}

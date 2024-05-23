@@ -1,0 +1,21 @@
+﻿@page "/"
+@using WgDashboardWebsite.Services
+
+<PageTitle>Home</PageTitle>
+<AuthorizeView>
+    <Authorized>
+        <h1>Hello, @(AuthState.Name ?? AuthState.Username)</h1>
+        @if(AuthState.Role == UserRoles.Admin)
+        {
+            <p>Manage the the server's users and peers using the links on the left</p>
+        }
+        else
+        {
+            <p>Click the link on the left to check out and manage your Wireguard peers!</p>
+        }
+    </Authorized>
+    <NotAuthorized>
+        <h1>Welcome!</h1>
+        <p>Login or signup to add your Wireguard peers!</p>
+    </NotAuthorized>
+</AuthorizeView>
