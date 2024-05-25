@@ -1,0 +1,137 @@
+﻿@page "/addpeer"
+@using System.Net
+@using WgDashboardWebsite.Helpers
+@attribute [Authorize(Roles = "admin,user")]
+
+<h3>Add a New Peer</h3>
+<hr />
+@if(!ok)
+{
+    <div class="row">
+        <div class="col-md-4">
+            <p class="text-danger">@notOkReason</p>
+        </div>
+    </div>
+}
+else if(successMessage is not null)
+{
+    <div class="row">
+        <div class="col-md-4">
+            <p class="text-success">@successMessage</p>
+        </div>
+    </div>
+}
+<div class="row">
+    <div class="col-md-4">
+        <form>
+            <div class="form-group">
+                <label for="add-peer-pk" class="control-label">Public Key:</label>
+                <input type="text" id="add-peer-pk" class="form-control" @bind=peer.PublicKey />
+            </div>
+            <br />
+            <div class="form-group">
+                <label for="add-peer-ip" class="control-label">Allowed IPs:</label>
+                <input type="text" id="add-peer-ip" class="form-control" @bind=peer.AllowedIPs />
+            </div>
+            <br />
+            @if(AuthState.Role == UserRoles.Admin)
+            {
+                <div class="form-group">
+                    <label for="add-peer-ownerid" class="control-label">Owner ID:</label>
+                    <input type="text" id="add-peer-ownerid" class="form-control" @bind=peer.OwnerId />
+                </div>
+                <br />
+            }
+            <div class="form-group">
+                <label for="add-peer-device-type" class="control-label">Device Type (optional):</label>
+                <input type="text" id="peer-device-type" class="form-control" @bind=peer.DeviceType />
+            </div>
+            <br />
+            <div class="form-group">
+                <label for="peer-device-desc" class="control-label">Device description (optional):</label>
+                <input type="text" id="add-peer-ip" class="form-control" @bind=peer.DeviceDescription />
+            </div>
+            <br />
+            <div class="form-group">
+                <input type="submit" class="btn btn-primary" @onclick=SubmitPeer @onclick:preventDefault="true" value="Submit" />
+            </div>
+        </form>
+    </div>
+</div>
+
+@code {
+    private class NewPeer
+    {
+        public string? PublicKey { get; set; } // required
+        public string? AllowedIPs { get; set; } // required
+        public int? OwnerId { get; set; } // required
+        public string? DeviceType { get; set; } 
+        public string? DeviceDescription { get; set; }
+    }
+
+    private NewPeer peer = new NewPeer();
+    private bool ok = true;
+    private string notOkReason = "";
+    string? successMessage = null;
+
+    private async Task SubmitPeer()
+    {
+        if (AuthState.Role == UserRoles.User)
+            peer.OwnerId = AuthState.Id;
+
+        if(!StringsNullOrEmpty.CheckStrings(peer.PublicKey, peer.AllowedIPs) || peer.OwnerId is null)
+        {
+            successMessage = null;
+            ok = false;
+            notOkReason = "Public key, Allowed IPs, and Owner ID are required";
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
+        // set to null if user changes mind
+        if (peer.DeviceType == "")
+            peer.DeviceType = null;
+        if (peer.DeviceDescription == "")
+            peer.DeviceDescription = null;
+
+        // guard against invalid device type
+        if(!DeviceTypes.IsValidDeviceType(peer.DeviceType))
+        {
+            successMessage = null;
+            ok = false;
+            notOkReason = "Device type must be one of the following: ";
+            foreach(string type in DeviceTypes.AllValidTypes)
+            {
+                notOkReason += type + ", ";
+            }
+            // remove extra comma at the end of the generated string
+            notOkReason = notOkReason.Remove(startIndex: notOkReason.Length - 2);
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
+        string peersPath = WebsiteConfig.GetSection("WireguardApiConfig").GetValue<string>("PeersPath")
+            ?? "/api/peers";
+        HttpResponseMessage response = await client.PostAsJsonAsync(peersPath, peer);
+
+        if(response.IsSuccessStatusCode)
+        {
+            ok = true;
+            successMessage = "Done! New peer added";
+        }
+        else if(response.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            await LocalStorage.RemoveItemAsync("WireguardApiToken");
+            await AuthStateProvider.GetAuthenticationStateAsync();
+            NavigationManager.NavigateTo("/login");
+        }
+        else
+        {
+            successMessage = null;
+            ok = false;
+            notOkReason = (await response.Content.ReadAsStringAsync()).Replace("\"", "");
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+}

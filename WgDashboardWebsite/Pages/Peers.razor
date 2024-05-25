@@ -4,8 +4,6 @@
 @inject IJSRuntime JsRuntime
 @attribute [Authorize(Roles = "admin,user")]
 
-<section id="top"></section>
-
 @if(AuthState.Role == UserRoles.Admin)
 {
     <h3>All Wireguard Peers</h3>
@@ -152,6 +150,7 @@ else
 
         if(response.IsSuccessStatusCode)
         {
+            ok = true;
             peers = await response.Content.ReadFromJsonAsync<List<PeerProfile>>(
                 new JsonSerializerOptions() { PropertyNameCaseInsensitive = true }
             ) ?? new List<PeerProfile>();
@@ -159,11 +158,9 @@ else
         }
         else if(response.StatusCode == HttpStatusCode.Unauthorized)
         {
-            ok = false;
-            notOkReason = "The session has expired. Please signout and log back in.";
-            peers = new List<PeerProfile>();
-            await InvokeAsync(StateHasChanged);
-            await ScrollToTop();
+            await LocalStorage.RemoveItemAsync("WireguardApiToken");
+            await AuthStateProvider.GetAuthenticationStateAsync();
+            NavigationManager.NavigateTo("/login");
         }
         else
         {
@@ -173,17 +170,11 @@ else
             await InvokeAsync(StateHasChanged);
             await ScrollToTop();
         }
-        IEnumerable<PeerProfile> a = peers!.Where((peer) => peer.AllowedIPs.Contains("19"));
-        foreach (PeerProfile x in a)
-        {
-            Console.WriteLine(x.AllowedIPs);
-        }
     }
 
     private async Task SearchProfiles()
     {
         IQueryable<PeerProfile> newPeersToDisplay = peers!.AsQueryable(); // validated to be not null by GetPeers()
-        Console.WriteLine(profilesToSearch.AllowedIPs);
 
         // if invalid input, don't change what is on screen
         if (profilesToSearch.Id is not null)
@@ -194,7 +185,6 @@ else
             newPeersToDisplay = newPeersToDisplay.Where((peer) => peer.AllowedIPs.Contains(profilesToSearch.AllowedIPs));
         if (!string.IsNullOrEmpty(profilesToSearch.OwnerUsername))
             newPeersToDisplay = newPeersToDisplay.Where((peer) => peer.OwnerUsername.Contains(profilesToSearch.OwnerUsername));
-
 
         displayedPeers = newPeersToDisplay.ToList();
         await InvokeAsync(StateHasChanged);
@@ -231,7 +221,6 @@ else
 
     private async Task DeletePeer(int displayedPeersIndex)
     {
-        await ScrollToTop();
         bool confirmed = await JsRuntime.InvokeAsync<bool>("confirm", "Are you sure? This will delete the peer forever.");
         if (!confirmed)
             return;
@@ -247,8 +236,15 @@ else
 
         if(response.IsSuccessStatusCode)
         {
+            ok = true;
             await GetPeers();
             await SearchProfiles(); // re-run user's search in case they searched before deleting peer
+        }
+        else if(response.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            await LocalStorage.RemoveItemAsync("WireguardApiToken");
+            await AuthStateProvider.GetAuthenticationStateAsync();
+            NavigationManager.NavigateTo("/login");
         }
         else
         {

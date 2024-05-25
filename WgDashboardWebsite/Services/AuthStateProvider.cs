@@ -66,6 +66,12 @@ namespace WgDashboardWebsite.Services
             return state;
         }
 
+        public async void LogoutUser()
+        {
+            await _localStorage.RemoveItemAsync("WireguardApiToken");
+            await GetAuthenticationStateAsync();
+        }
+
         private static IEnumerable<Claim>? ParseClaimsFromJwt(string jwt)
         {
             var jwtSections = jwt.Split('.');

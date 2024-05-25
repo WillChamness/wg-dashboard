@@ -159,8 +159,8 @@ namespace WgDashboardApi.Controllers
             // guard against unauthorized user
             int userId = _identity.GetUserIdFromJwt(HttpContext);
             string userRole = _identity.GetUserRoleFromJwt(HttpContext);
-            if (_security.CheckUserAuthorized(newPeer.OwnerId, userId, userRole))
-                return Forbid("User's ID does not match peer's owner ID");
+            if (!_security.CheckUserAuthorized(newPeer.OwnerId, userId, userRole))
+                return BadRequest("User's ID does not match peer's owner ID");
 
             // attempt to attach peer to user
             PeerProfile createdPeer;
