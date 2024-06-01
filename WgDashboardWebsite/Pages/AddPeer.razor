@@ -79,7 +79,7 @@ else if(successMessage is not null)
         if (AuthState.Role == UserRoles.User)
             peer.OwnerId = AuthState.Id;
 
-        if(!StringsNullOrEmpty.CheckStrings(peer.PublicKey, peer.AllowedIPs) || peer.OwnerId is null)
+        if(StringsNullOrEmpty.Any(peer.PublicKey, peer.AllowedIPs) || peer.OwnerId is null)
         {
             successMessage = null;
             ok = false;

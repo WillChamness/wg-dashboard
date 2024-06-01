@@ -1,6 +1,7 @@
 ﻿@page "/login"
 @using System.Text.Json
 @using System.Text
+@using WgDashboardWebsite.Helpers
 @inject NavigationManager NavigationManager
 
 <h3>Login</h3>
@@ -47,7 +48,7 @@
         loginFailed = false;
 
         // guard against bad input
-        if(string.IsNullOrEmpty(credentials.Username) || string.IsNullOrEmpty(credentials.Password))
+        if(StringsNullOrEmpty.Any(credentials.Username, credentials.Password))
         {
             loginFailed = true;
             loginFailedReason = "Textbox cannot be empty";

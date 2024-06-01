@@ -1,0 +1,180 @@
+﻿@page "/profile"
+@using System.Text.Json
+@using System.Net
+@attribute [Authorize(Roles = "admin,user")]
+@inject IJSRuntime JsRuntime
+
+@if(users is null)
+{
+    <p>Loading...</p>
+}
+else
+{
+    @if (!ok)
+    {
+        <div class="row">
+            <div class="col-md-4">
+                <p class="text-danger">@notOkReason</p>
+            </div>
+        </div>
+    }
+    if(AuthState.Role == UserRoles.Admin)
+    {
+        <h3>User Profiles</h3>
+        <div class="row" style="overflow-x: scroll; max-height: 350px; overflow-y: scroll">
+            <div class="col-md-12">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>User ID</th>
+                            <th>Name</th>
+                            <th>Username</th>
+                            <th>Role</th>
+                            <th>Delete User</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if(true) @* use meaningless conditional to declare variable *@
+                        {
+                            int i = 0; // using for loop causes overflow exception when searching for users
+                            @foreach (UserProfile user in users)
+                            {
+                                int buffer = i;
+                                string backgroundColor = buffer % 2 == 0 ? "table-light" : "table-secondary";
+                                <tr class=@backgroundColor>
+                                    <td>@user.Id</td>
+                                    <td>@user.Name</td>
+                                    <td>@user.Username</td>
+                                    <td>@user.Role</td>
+                                    <td><input type="button" class="btn btn-danger" value="Delete" @onclick="() => DeleteUser(buffer)" /></td>
+                                </tr>
+                                i++;
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="row">
+            <div class="col-md-4">
+                <h3>My Profile</h3>
+                <p>User ID: @users[0].Id</p>
+                <p>Name: @(users[0].Name ?? "(none)")</p>
+                <p>Username: @users[0].Username</p>
+            </div>
+        </div>
+    }
+}
+@code {
+    List<UserProfile>? users;
+    bool ok = true;
+    string notOkReason = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthState.Role == UserRoles.Admin)
+            await GetAllUsers();
+        else
+            await GetUserProfile();
+    }
+
+    private async Task GetAllUsers()
+    {
+        string uri = WebsiteConfig.GetSection("WireguardApiConfig").GetValue<string>("UserRoute") ?? "/api/users";
+
+        HttpResponseMessage response = await client.GetAsync(uri);
+        if(response.IsSuccessStatusCode)
+        {
+            List<UserProfile>? userProfiles = await response.Content.ReadFromJsonAsync<List<UserProfile>>(
+                new JsonSerializerOptions() { PropertyNameCaseInsensitive = true }
+            );
+
+            users = new List<UserProfile>();
+            if (userProfiles is not null)
+                users = userProfiles;
+        }
+        else if(response.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            await LocalStorage.RemoveItemAsync("WireguardApiToken");
+            await AuthStateProvider.GetAuthenticationStateAsync();
+            NavigationManager.NavigateTo("/login");
+        }
+        else
+        {
+            ok = false;
+            notOkReason = (await response.Content.ReadAsStringAsync()).Replace("\"", "");
+            await InvokeAsync(StateHasChanged);
+            await ScrollToTop();
+        }
+    }
+
+    private async Task GetUserProfile()
+    {
+        string uri = WebsiteConfig.GetSection("WireguardApiConfig").GetValue<string>("UserRoute") ?? "/api/users";
+        uri += "/" + AuthState.Id;
+
+        HttpResponseMessage response = await client.GetAsync(uri);
+        if(response.IsSuccessStatusCode)
+        {
+            UserProfile? user = await response.Content.ReadFromJsonAsync<UserProfile>(
+                new JsonSerializerOptions() { PropertyNameCaseInsensitive = true }
+            );
+
+            users = new List<UserProfile>();
+            if (user is not null)
+                users.Add(user);
+        }
+        else if(response.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            await LocalStorage.RemoveItemAsync("WireguardApiToken");
+            await AuthStateProvider.GetAuthenticationStateAsync();
+            NavigationManager.NavigateTo("/login");
+        }
+        else
+        {
+            ok = false;
+            notOkReason = (await response.Content.ReadAsStringAsync()).Replace("\"", "");
+            await InvokeAsync(StateHasChanged);
+            await ScrollToTop();
+        }
+
+    }
+
+    private async Task DeleteUser(int userIndex)
+    {
+        UserProfile user = users![userIndex]; // users validated not null by OnInitializedAsync() at this point
+        string uri = WebsiteConfig.GetSection("WireguardApiConfig").GetValue<string>("UserRoute") ?? "/api/users";
+        uri += "/" + user.Id;
+
+        HttpResponseMessage response = await client.DeleteAsync(uri);
+        if(response.IsSuccessStatusCode)
+        {
+            await GetAllUsers();
+            ok = true;
+        }
+        else if(response.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            await LocalStorage.RemoveItemAsync("WireguardApiToken");
+            await AuthStateProvider.GetAuthenticationStateAsync();
+            NavigationManager.NavigateTo("/login");
+        }
+        else
+        {
+            ok = false;
+            notOkReason = (await response.Content.ReadAsStringAsync()).Replace("\"", "");
+            await InvokeAsync(StateHasChanged);
+            await ScrollToTop();
+        }
+
+    }
+
+    private async Task ScrollToTop()
+    {
+        string id = "top";
+        var js = "window.scrollToId";
+        await JsRuntime.InvokeVoidAsync(js, id);
+    }
+}
