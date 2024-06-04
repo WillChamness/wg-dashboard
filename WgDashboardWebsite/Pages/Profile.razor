@@ -39,19 +39,18 @@ else
                             int i = 0; // using for loop causes overflow exception when searching for users
                             @foreach (UserProfile user in users)
                             {
-                                if(user.Id == AuthState.Id)
+                                if(user.Id != AuthState.Id)
                                 {
-                                    continue;
+                                    int buffer = i;
+                                    string backgroundColor = buffer % 2 == 0 ? "table-light" : "table-secondary";
+                                    <tr class=@backgroundColor>
+                                        <td>@user.Id</td>
+                                        <td>@user.Name</td>
+                                        <td>@user.Username</td>
+                                        <td>@user.Role</td>
+                                        <td><input type="button" class="btn btn-danger" value="Delete" @onclick="() => DeleteUser(buffer)" /></td>
+                                    </tr>
                                 }
-                                int buffer = i;
-                                string backgroundColor = buffer % 2 == 0 ? "table-light" : "table-secondary";
-                                <tr class=@backgroundColor>
-                                    <td>@user.Id</td>
-                                    <td>@user.Name</td>
-                                    <td>@user.Username</td>
-                                    <td>@user.Role</td>
-                                    <td><input type="button" class="btn btn-danger" value="Delete" @onclick="() => DeleteUser(buffer)" /></td>
-                                </tr>
                                 i++;
                             }
                         }
@@ -124,7 +123,7 @@ else
         }
     }
 
-    private async Task GetUserProfile()
+    private async Task GetUserProfile() 
     {
         string uri = WebsiteConfig.GetSection("WireguardApiConfig").GetValue<string>("UserRoute") ?? "/api/users";
         uri += "/" + AuthState.Id;
