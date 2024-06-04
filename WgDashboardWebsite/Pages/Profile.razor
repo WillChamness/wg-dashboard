@@ -39,6 +39,10 @@ else
                             int i = 0; // using for loop causes overflow exception when searching for users
                             @foreach (UserProfile user in users)
                             {
+                                if(user.Id == AuthState.Id)
+                                {
+                                    continue;
+                                }
                                 int buffer = i;
                                 string backgroundColor = buffer % 2 == 0 ? "table-light" : "table-secondary";
                                 <tr class=@backgroundColor>
@@ -56,17 +60,26 @@ else
             </div>
         </div>
     }
-    else
-    {
-        <div class="row">
-            <div class="col-md-4">
-                <h3>My Profile</h3>
-                <p>User ID: @users[0].Id</p>
-                <p>Name: @(users[0].Name ?? "(none)")</p>
-                <p>Username: @users[0].Username</p>
-            </div>
+    <br />
+    <div class="row">
+        <div class="col-md-4">
+            @if(true) @* use meaningless conditional to declare variable *@
+            {
+                UserProfile? userProfile = users.Where((user) => user.Id == AuthState.Id).FirstOrDefault();
+                if(userProfile is null)
+                {
+                    <p class="text-danger">Could not identify user with ID @AuthState.Id. Who are you?</p>
+                }
+                else
+                {
+                    <h3>My Profile</h3>
+                    <p>User ID: @userProfile.Id</p>
+                    <p>Name: @(userProfile.Name ?? "(none)")</p>
+                    <p>Username: @userProfile.Username</p>
+                }
+            }
         </div>
-    }
+    </div>
 }
 @code {
     List<UserProfile>? users;
