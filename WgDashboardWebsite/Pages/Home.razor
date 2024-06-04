@@ -4,7 +4,14 @@
 <PageTitle>Home</PageTitle>
 <AuthorizeView>
     <Authorized>
-        <h1>Hello, @(AuthState.Name ?? AuthState.Username)</h1>
+        @if(!string.IsNullOrEmpty(AuthState.Name))
+        {
+            <h1>Hello, @AuthState.Name</h1>
+        }
+        else
+        {
+            <h1>Hello, @AuthState.Username</h1>
+        }
         @if(AuthState.Role == UserRoles.Admin)
         {
             <p>Manage the the server's users and peers using the links on the left</p>
