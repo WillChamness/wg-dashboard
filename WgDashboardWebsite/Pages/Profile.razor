@@ -157,6 +157,10 @@ else
 
     private async Task DeleteUser(int userIndex)
     {
+
+        bool confirmed = await JsRuntime.InvokeAsync<bool>("confirm", "Are you sure? This will delete the user and all peers attached forever.");
+        if (!confirmed)
+            return;
         UserProfile user = users![userIndex]; // users validated not null by OnInitializedAsync() at this point
         string uri = WebsiteConfig.GetSection("WireguardApiConfig").GetValue<string>("UserRoute") ?? "/api/users";
         uri += "/" + user.Id;
