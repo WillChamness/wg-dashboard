@@ -129,7 +129,7 @@ namespace WgDashboardApi.Controllers
             catch(BadRequestException bre)
                 { return BadRequest(bre.Message); }
             catch(ResourceNotFoundException rnfe)
-                { return BadRequest(rnfe.Message); }
+                { return NotFound(rnfe.Message); }
             catch(InternalServerErrorException isee)
                 { return StatusCode(StatusCodes.Status500InternalServerError, isee.Message); }
 
