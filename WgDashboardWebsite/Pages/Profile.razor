@@ -1,6 +1,8 @@
 ﻿@page "/profile"
 @using System.Text.Json
 @using System.Net
+@using System.Text
+@using WgDashboardWebsite.Helpers
 @attribute [Authorize(Roles = "admin,user")]
 @inject IJSRuntime JsRuntime
 
@@ -60,28 +62,56 @@ else
         </div>
     }
     <br />
-    <div class="row">
-        <div class="col-md-4">
-            @if(true) @* use meaningless conditional to declare variable *@
-            {
-                UserProfile? userProfile = users.Where((user) => user.Id == AuthState.Id).FirstOrDefault();
-                if(userProfile is null)
-                {
-                    <p class="text-danger">Could not identify user with ID @AuthState.Id. Who are you?</p>
-                }
-                else
-                {
+    @if(true) @* use meaningless conditional to declare variable *@
+    {
+        UserProfile? userProfile = users.Where((user) => user.Id == AuthState.Id).FirstOrDefault();
+        if(userProfile is null)
+        {
+            <p class="text-danger">Could not identify user with ID @AuthState.Id. Who are you?</p>
+        }
+        else
+        {
+            <div class="row">
+                <div class="col-md-4">
                     <h3>My Profile</h3>
                     <p>User ID: @userProfile.Id</p>
-                    <p>Name: @(userProfile.Name ?? "(none)")</p>
+                    <p>Name: @(userProfile.Name is not null ? userProfile.Name : "(none)")</p>
                     <p>Username: @userProfile.Username</p>
-                }
-            }
-        </div>
-    </div>
+                </div>
+            </div>
+            <br />
+            <div class="row">
+                <h3>Change Password</h3>
+            </div>
+            <div class="row">
+                <div class="col-md-4">
+                    <form>
+                        <div class="form-group">
+                            <label for="change-password-textbox">Password:</label>
+                            <input type="password" id="change-password-textbox" class="form-control" @bind=passwordRequest.Password />
+                        </div>
+                        <br />
+                        <div class="form-group">
+                            <label for="change-password-confirm-textbox">Confirm Password:</label>
+                            <input type="password" id="change-password-confirm-textbox" class="form-control" @bind=passwordRequest.ConfirmPassword />
+                        </div>
+                        <br />
+                        <div class="form-group">
+                            <input type="submit" class="btn btn-primary" @onclick=SubmitPasswordChange @onclick:preventDefault="true" value="Submit" />
+                        </div>
+                    </form>
+                </div>
+            </div>
+        }
+    }
 }
 @code {
+    private class PasswordRequest : ChangePasswordRequest
+    {
+        public string? ConfirmPassword { get; set; }
+    }
     List<UserProfile>? users;
+    PasswordRequest passwordRequest = new PasswordRequest() { Id = AuthState.Id };
     bool ok = true;
     string notOkReason = "";
 
@@ -152,7 +182,6 @@ else
             await InvokeAsync(StateHasChanged);
             await ScrollToTop();
         }
-
     }
 
     private async Task DeleteUser(int userIndex)
@@ -172,6 +201,60 @@ else
             ok = true;
         }
         else if(response.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            await LocalStorage.RemoveItemAsync("WireguardApiToken");
+            await AuthStateProvider.GetAuthenticationStateAsync();
+            NavigationManager.NavigateTo("/login");
+        }
+        else
+        {
+            ok = false;
+            notOkReason = (await response.Content.ReadAsStringAsync()).Replace("\"", "");
+            await InvokeAsync(StateHasChanged);
+            await ScrollToTop();
+        }
+    }
+
+    private async Task SubmitPasswordChange()
+    {
+        if (StringsNullOrEmpty.Any(passwordRequest.Password, passwordRequest.ConfirmPassword))
+        {
+            ok = false;
+            notOkReason = "Textbox cannot be empty";
+            await InvokeAsync(StateHasChanged);
+            await ScrollToTop();
+            return;
+        }
+        else if(passwordRequest.Password != passwordRequest.ConfirmPassword)
+        {
+            ok = false;
+            notOkReason = "Passwords do not match";
+            await InvokeAsync(StateHasChanged);
+            await ScrollToTop();
+            return;
+        }
+
+        string? authRoute = WebsiteConfig.GetSection("WireguardApiConfig").GetValue<string>("AuthRoute");
+        if (authRoute is not null)
+            authRoute += "/passwd/";
+        else
+            authRoute = "/api/auth/passwd/";
+        authRoute += AuthState.Id.ToString();
+
+        var json = JsonSerializer.Serialize(new ChangePasswordRequest()
+            {
+                Id = passwordRequest.Id,
+                Password = passwordRequest.Password,
+            });
+        HttpContent content = new StringContent(json, Encoding.UTF8, "application/json");
+        HttpResponseMessage response = await client.PatchAsync(authRoute, content);
+
+        if(response.IsSuccessStatusCode)
+        {
+            await JsRuntime.InvokeVoidAsync("alert", "Success! Page will now reload.");
+            NavigationManager.NavigateTo("/", true);
+        }
+        else if (response.StatusCode == HttpStatusCode.Unauthorized)
         {
             await LocalStorage.RemoveItemAsync("WireguardApiToken");
             await AuthStateProvider.GetAuthenticationStateAsync();
