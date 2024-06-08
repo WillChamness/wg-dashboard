@@ -62,10 +62,30 @@ namespace WgDashboardApi.Services
     public class SecurityService : ISecurityService
     {
         private readonly WireguardDbContext _context;
+        private static bool initilized = false;
 
         public SecurityService(WireguardDbContext dbContext, IConfiguration config) 
         {
             this._context = dbContext;
+            // add a default admin on API startup to prevent lockouts by deleting all admins
+            if(!initilized)
+            {
+                // a new security service is created every time this service is called. keep track of the first time API was initialized 
+                // to prevent a user with a weak password from being created
+                initilized = true;
+                if(!_context.Users.Where((user) => user.Role == UserRoles.Admin).Any())
+                {
+                    var newUser = new User()
+                    {
+                        Username = "admin",
+                        Password = "admin",
+                        Name = "Default Admin",
+                        Role = UserRoles.Admin,
+                    };
+                    _context.Users.Add(newUser);
+                    _context.SaveChanges();
+                }
+            }
         }
 
         public Task<User?> Authenticate(string? username, string? password)
