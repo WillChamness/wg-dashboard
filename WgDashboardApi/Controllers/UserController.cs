@@ -90,7 +90,7 @@ namespace WgDashboardApi.Controllers
             // guards against unauthorized users
             int requestingUsersId = _identity.GetUserIdFromJwt(HttpContext);
             string requestingUsersRole = _identity.GetUserRoleFromJwt(HttpContext);
-            if (_security.CheckUserAuthorized(id, requestingUsersId, requestingUsersRole)) 
+            if (!_security.CheckUserAuthorized(id, requestingUsersId, requestingUsersRole)) 
                 return NotFound($"User with ID {id} not found"); // return NotFound to hide that there might be a user
             if (requestingUsersRole != UserRoles.Admin && requestingUsersRole != updatedUserProfile.Role) // make sure the user isn't elevating their own privileges
                 return Forbid($"Insufficient priviliges to change user's role");

@@ -23,7 +23,7 @@ else
     if(AuthState.Role == UserRoles.Admin)
     {
         <h3>User Profiles</h3>
-        <div class="row" style="overflow-x: scroll; max-height: 350px; overflow-y: scroll">
+        <div class="row" style="overflow-x: scroll; max-height: 350px; overflow-y: scroll;">
             <div class="col-md-12">
                 <table class="table">
                     <thead>
@@ -32,6 +32,7 @@ else
                             <th>Name</th>
                             <th>Username</th>
                             <th>Role</th>
+                            <th>Make Admin</th>
                             <th>Delete User</th>
                         </tr>
                     </thead>
@@ -50,6 +51,7 @@ else
                                         <td>@user.Name</td>
                                         <td>@user.Username</td>
                                         <td>@user.Role</td>
+                                        <td><input type="button" class="btn btn-warning" value="Make Admin" @onclick="() => MakeAdmin(buffer)"/></td>
                                         <td><input type="button" class="btn btn-danger" value="Delete" @onclick="() => DeleteUser(buffer)" /></td>
                                     </tr>
                                 }
@@ -186,7 +188,6 @@ else
 
     private async Task DeleteUser(int userIndex)
     {
-
         bool confirmed = await JsRuntime.InvokeAsync<bool>("confirm", "Are you sure? This will delete the user and all peers attached forever.");
         if (!confirmed)
             return;
@@ -275,5 +276,53 @@ else
         string id = "top";
         var js = "window.scrollToId";
         await JsRuntime.InvokeVoidAsync(js, id);
+    }
+
+    private async Task MakeAdmin(int userIndex)
+    {
+        string username = users![userIndex].Username; // users confirmed to be not null at this point
+        bool confirmed = await JsRuntime.InvokeAsync<bool>("confirm", $"Make '{username}' admin?");
+        if (!confirmed)
+            return;
+        confirmed = await JsRuntime.InvokeAsync<bool>("confirm", $"Are you sure? The only way to undo this is to delete '{username}'");
+        if (!confirmed)
+            return;
+
+        var updatedUser = new UpdateUserRequest()
+            {
+                Id = users![userIndex].Id,
+                Username = users![userIndex].Username,
+                Name = users![userIndex].Name,
+                Role = UserRoles.Admin,
+            };
+
+        string? userRoute = WebsiteConfig.GetSection("WireguardApiConfig").GetValue<string>("UserRoute");
+        if (userRoute is not null)
+            userRoute += "/" + updatedUser.Id;
+        else
+            userRoute = "/api/users/" + updatedUser.Id;
+
+        string json = JsonSerializer.Serialize(updatedUser);
+        HttpContent content = new StringContent(json, Encoding.UTF8, "application/json");
+        HttpResponseMessage response = await client.PutAsync(userRoute, content);
+
+        if(response.IsSuccessStatusCode)
+        {
+            users![userIndex].Role = "admin";
+            await InvokeAsync(StateHasChanged);
+        }
+        else if(response.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            await LocalStorage.RemoveItemAsync("WireguardApiToken");
+            await AuthStateProvider.GetAuthenticationStateAsync();
+            NavigationManager.NavigateTo("/login");
+        }
+        else
+        {
+            ok = false;
+            notOkReason = (await response.Content.ReadAsStringAsync()).Replace("\"", "");
+            await InvokeAsync(StateHasChanged);
+            await ScrollToTop();
+        }
     }
 }
