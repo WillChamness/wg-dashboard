@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.IdentityModel.Protocols.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
@@ -64,13 +65,20 @@ builder.Services.AddAuthentication(opts =>
 builder.Services.AddAuthentication();
 
 // DB for entity framework
-string? connectionString = builder.Configuration.GetConnectionString("WireguardDb");
-if (connectionString is null)
-    throw new InvalidConfigurationException("Connection string is a required setting");
-builder.Services.AddDbContext<WireguardDbContext>(opts =>
+if(builder.Environment.IsDevelopment())
 {
-    opts.UseSqlServer(connectionString);
-});
+    builder.Services.AddDbContext<WireguardDbContext>(opts => opts.UseInMemoryDatabase("TestDb"));
+}
+else
+{
+    string? connectionString = builder.Configuration.GetConnectionString("WireguardDb");
+    if (connectionString is null)
+        throw new InvalidConfigurationException("Connection string is a required setting");
+    builder.Services.AddDbContext<WireguardDbContext>(opts =>
+    {
+        opts.UseSqlServer(connectionString);
+    });
+}
 
 // dependency injections
 builder.Services.AddScoped<ISecurityService, SecurityService>();
