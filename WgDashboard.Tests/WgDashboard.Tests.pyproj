@@ -32,7 +32,6 @@
     <Compile Include="test_api_users.py">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="WgDashboard.Tests.py" />
   </ItemGroup>
   <ItemGroup>
     <Interpreter Include="env\">
