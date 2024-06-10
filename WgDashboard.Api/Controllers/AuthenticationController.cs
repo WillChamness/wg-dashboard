@@ -98,7 +98,7 @@ namespace WgDashboard.Api.Controllers
         }
 
         /// <summary>
-        /// <para>PATCH: /api/auth/passwd</para>
+        /// <para>PATCH: /api/auth/passwd/5</para>
         /// 
         /// <para>Updates the user's password</para>
         /// </summary>
