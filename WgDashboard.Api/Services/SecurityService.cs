@@ -62,28 +62,35 @@ namespace WgDashboard.Api.Services
     public class SecurityService : ISecurityService
     {
         private readonly WireguardDbContext _context;
+        private readonly IConfiguration _config;
         private static bool initilized = false;
 
         public SecurityService(WireguardDbContext dbContext, IConfiguration config) 
         {
             this._context = dbContext;
+            this._config = config;
             // add a default admin on API startup to prevent lockouts by deleting all admins
-            if(!initilized)
+            if (!initilized)
             {
                 // a new security service is created every time this service is called. keep track of the first time API was initialized 
-                // to prevent a user with a weak password from being created
+                // to prevent arbitrarily creating a user with a possibly weak password
                 initilized = true;
-                if(!_context.Users.Where((user) => user.Role == UserRoles.Admin).Any())
+                if (!_context.Users.Where((user) => user.Role == UserRoles.Admin).Any())
                 {
-                    var newUser = new User()
+                    string? initialUsername = _config.GetSection("InitialAdminCredentials").GetValue<string>("Username");
+                    string? initialPassword = _config.GetSection("InitialAdminCredentials").GetValue<string>("Password");
+                    if (!string.IsNullOrEmpty(initialUsername) && !string.IsNullOrEmpty(initialPassword))
                     {
-                        Username = "admin",
-                        Password = "admin",
-                        Name = "Default Admin",
-                        Role = UserRoles.Admin,
-                    };
-                    _context.Users.Add(newUser);
-                    _context.SaveChanges();
+                        var newUser = new User()
+                        {
+                            Username = initialUsername,
+                            Password = initialPassword,
+                            Name = "Default Admin",
+                            Role = UserRoles.Admin,
+                        };
+                        _context.Users.Add(newUser);
+                        _context.SaveChanges();
+                    }
                 }
             }
         }
