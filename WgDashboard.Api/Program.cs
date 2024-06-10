@@ -6,13 +6,14 @@ using System.Text;
 using WgDashboard.Api.Data;
 using WgDashboard.Api.Services;
 
+
+var builder = WebApplication.CreateBuilder(args);
+
 // reader for appsettings.json
 var config = new ConfigurationBuilder()
         .SetBasePath(AppDomain.CurrentDomain.BaseDirectory)
-        .AddJsonFile("appsettings.json")
+        .AddJsonFile(builder.Environment.IsDevelopment() ? "appsettings.Development.json" : "appsettings.json")
         .Build();
-
-var builder = WebApplication.CreateBuilder(args);
 
 // set address, port, and protocol to listen on
 string listenAddress = config["ListenSettings:Address"] ?? "127.0.0.1";

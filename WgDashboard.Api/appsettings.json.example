@@ -21,5 +21,9 @@
   },
   "DnsSettings": {
     "BrowserUrlToApi": "http://localhost:3000"
+  },
+  "InitialAdminCredentials": {
+    "Username": "admin",
+    "Password": "admin"
   }
 }
