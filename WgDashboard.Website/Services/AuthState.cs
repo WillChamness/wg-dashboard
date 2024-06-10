@@ -1,6 +1,6 @@
-﻿using WgDashboardWebsite.Models;
+﻿using WgDashboard.Website.Models;
 
-namespace WgDashboardWebsite.Services
+namespace WgDashboard.Website.Services
 {
     public static class AuthState
     {

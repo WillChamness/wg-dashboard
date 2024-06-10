@@ -1,4 +1,4 @@
-﻿namespace WgDashboardWebsite.Models
+﻿namespace WgDashboard.Website.Models
 {
     public class PeerProfile
     {

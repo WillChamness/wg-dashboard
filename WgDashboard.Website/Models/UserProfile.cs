@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace WgDashboardWebsite.Models
+namespace WgDashboard.Website.Models
 {
     /// <summary>
     /// The profile that contains information that can be serialized and sent to the client.

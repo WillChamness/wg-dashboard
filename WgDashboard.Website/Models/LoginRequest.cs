@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace WgDashboardWebsite.Models
+namespace WgDashboard.Website.Models
 {
     /// <summary>
     /// Represents the username/password that the user sends to the API

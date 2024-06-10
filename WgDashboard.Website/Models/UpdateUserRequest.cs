@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace WgDashboardWebsite.Models
+namespace WgDashboard.Website.Models
 {
     public class UpdateUserRequest
     {

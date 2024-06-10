@@ -1,4 +1,4 @@
-﻿namespace WgDashboardWebsite.Helpers
+﻿namespace WgDashboard.Website.Helpers
 {
     public static class StringsNullOrEmpty
     {

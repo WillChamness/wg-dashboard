@@ -3,9 +3,9 @@ using Microsoft.AspNetCore.Components.Authorization;
 using System.Net.Http.Headers;
 using System.Security.Claims;
 using System.Text.Json;
-using WgDashboardWebsite.Models;
+using WgDashboard.Website.Models;
 
-namespace WgDashboardWebsite.Services
+namespace WgDashboard.Website.Services
 {
     public class AuthStateProvider : AuthenticationStateProvider
     {
