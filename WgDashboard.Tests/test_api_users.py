@@ -21,12 +21,40 @@ class TestApiUsers(unittest.TestCase):
             "password": "mypassword"
         })
         assert 200 <= response.status_code and response.status_code <= 299
+
         encoded_jwt = response.content.decode().replace("\"", "")
         decoded_jwt = jwt.decode(encoded_jwt, algorithms=["HS256"], options={"verify_signature": False})
         claims_names = (
             "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/sid",
             "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier",
             "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name",
+            "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"
+        )
+        claims = dict()
+        for claim_name in claims_names:
+            claim = claim_name.split("/")[-1]
+            claims[claim] = decoded_jwt[claim_name]
+
+        return (encoded_jwt, claims)
+    
+
+    @staticmethod
+    def _login(url, username: str, password: str) -> tuple[str, dict[str, str]]:
+        assert len(username) > 0
+        assert len(password) > 0
+        response = requests.post(url + "/api/auth/login", json={
+            "username": username,
+            "password": password
+        })
+        assert 200 <= response.status_code and response.status_code <= 299
+
+        encoded_jwt = response.content.decode().replace("\"", "")
+        decoded_jwt = jwt.decode(encoded_jwt, algorithms=["HS256"], options={"verify_signature": False})
+        claims_names = (
+            "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/sid",
+            "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier",
+            "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name",
+            "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"
         )
         claims = dict()
         for claim_name in claims_names:
@@ -35,12 +63,15 @@ class TestApiUsers(unittest.TestCase):
 
         return (encoded_jwt, claims)
 
+
         
     def setUp(self):
         dotenv.load_dotenv()
         self.url: str = os.getenv("API_URL") 
         self.jwt1, self.user1 = self._signup_and_login(self.url)
         self.jwt2, self.user2 = self._signup_and_login(self.url)
+        self.admin_jwt, self.admin = self._login(self.url, "admin", "admin")
+
         self.url += "/api/users"
 
 
@@ -75,6 +106,31 @@ class TestApiUsers(unittest.TestCase):
             headers={"Authorization": "Bearer " + self.jwt1},
         )
         self.assertEqual(response.status_code, STATUS_CODE_NOT_FOUND)
+
+
+    def test_cannot_access_all_without_admin(self):
+        STATUS_CODE_UNAUTHORIZED = 403
+        response = requests.get(self.url, headers={"Authorization": "Bearer " + self.jwt1})
+        self.assertEqual(response.status_code, STATUS_CODE_UNAUTHORIZED)
+        
+
+    def test_access_all_with_admin(self):
+        response = requests.get(self.url, headers={"Authorization": "Bearer " + self.admin_jwt})
+        self.assertTrue(200 <= response.status_code and response.status_code <= 299)
+
+        body = json.loads(response.content.decode())
+        self.assertIsInstance(body, list)
+        self.assertTrue(all([isinstance(user, dict) for user in body]))
+
+
+    def test_access_other_user_with_admin(self):
+        response = requests.get(self.url + "/" + self.user1["sid"],
+            headers={"Authorization": "Bearer " + self.admin_jwt}
+        )
+        self.assertTrue(200 <= response.status_code and response.status_code <= 299)
+
+        body = json.loads(response.content.decode())
+        self.assertIsInstance(body, dict)
 
     
 
