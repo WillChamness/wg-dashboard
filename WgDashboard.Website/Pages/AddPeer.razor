@@ -1,6 +1,7 @@
 ﻿@page "/addpeer"
 @using System.Net
 @using WgDashboard.Website.Helpers
+@inherits BasePageFunctionality
 @attribute [Authorize(Roles = "admin,user")]
 
 <h3>Add a New Peer</h3>
@@ -70,8 +71,6 @@ else if(successMessage is not null)
     }
 
     private NewPeer peer = new NewPeer();
-    private bool ok = true;
-    private string notOkReason = "";
     string? successMessage = null;
 
     private async Task SubmitPeer()
@@ -82,9 +81,7 @@ else if(successMessage is not null)
         if(StringsNullOrEmpty.Any(peer.PublicKey, peer.AllowedIPs) || peer.OwnerId is null)
         {
             successMessage = null;
-            ok = false;
-            notOkReason = "Public key, Allowed IPs, and Owner ID are required";
-            await InvokeAsync(StateHasChanged);
+            await base.SetErrorMessage("Public key, Allowed IPs, and Owner ID are required");
             return;
         }
 
@@ -114,24 +111,17 @@ else if(successMessage is not null)
             ?? "/api/peers";
         HttpResponseMessage response = await client.PostAsJsonAsync(peersPath, peer);
 
-        if(response.IsSuccessStatusCode)
+        if (response.IsSuccessStatusCode)
         {
-            ok = true;
+            await base.ClearErrorMessage();
             successMessage = "Done! New peer added";
         }
-        else if(response.StatusCode == HttpStatusCode.Unauthorized)
-        {
-            await LocalStorage.RemoveItemAsync("WireguardApiToken");
-            await AuthStateProvider.GetAuthenticationStateAsync();
-            NavigationManager.NavigateTo("/login");
-        }
+        else if (response.StatusCode == HttpStatusCode.Unauthorized)
+            await base.LogoutUser();
         else
         {
             successMessage = null;
-            ok = false;
-            notOkReason = (await response.Content.ReadAsStringAsync()).Replace("\"", "");
+            await base.SetErrorMessage((await response.Content.ReadAsStringAsync()).Replace("\"", ""));
         }
-
-        await InvokeAsync(StateHasChanged);
     }
 }

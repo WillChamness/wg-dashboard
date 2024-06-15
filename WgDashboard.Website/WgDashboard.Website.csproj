@@ -41,7 +41,6 @@
     <_ContentIncludedByDefault Remove="Pages\Login.razor" />
     <_ContentIncludedByDefault Remove="Pages\Logout.razor" />
     <_ContentIncludedByDefault Remove="Pages\Peers.razor" />
-    <_ContentIncludedByDefault Remove="Pages\Profile.razor" />
     <_ContentIncludedByDefault Remove="Pages\Signup.razor" />
   </ItemGroup>
 
@@ -55,10 +54,6 @@
 
   <ItemGroup>
     <UpToDateCheckInput Remove="Pages\Peers.razor" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <UpToDateCheckInput Remove="Pages\Profile.razor" />
   </ItemGroup>
 
   <ItemGroup>

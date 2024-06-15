@@ -1,7 +1,9 @@
 ﻿@page "/peers"
 @using System.Text.Json
 @using System.Net
+@using WgDashboard.Website.Helpers
 @inject IJSRuntime JsRuntime
+@inherits BasePageFunctionality
 @attribute [Authorize(Roles = "admin,user")]
 
 @if(AuthState.Role == UserRoles.Admin)
@@ -114,8 +116,6 @@ else
     private List<PeerProfile>? peers = null;
     private List<PeerProfile> displayedPeers = new List<PeerProfile>();
     private SearchProfile profilesToSearch = new SearchProfile();
-    private bool ok = true;
-    private string notOkReason = "";
 
     private class SearchProfile
     {
@@ -126,6 +126,7 @@ else
     }
     protected override async Task OnInitializedAsync()
     {
+        await base.OnInitializedAsync();
         await GetPeers();
     }
 
@@ -148,7 +149,7 @@ else
 
         HttpResponseMessage response = await client.GetAsync(peersPath);
 
-        if(response.IsSuccessStatusCode)
+        if (response.IsSuccessStatusCode)
         {
             ok = true;
             peers = await response.Content.ReadFromJsonAsync<List<PeerProfile>>(
@@ -156,19 +157,12 @@ else
             ) ?? new List<PeerProfile>();
             displayedPeers = peers;
         }
-        else if(response.StatusCode == HttpStatusCode.Unauthorized)
-        {
-            await LocalStorage.RemoveItemAsync("WireguardApiToken");
-            await AuthStateProvider.GetAuthenticationStateAsync();
-            NavigationManager.NavigateTo("/login");
-        }
+        else if (response.StatusCode == HttpStatusCode.Unauthorized)
+            await base.LogoutUser();
         else
         {
-            ok = false;
-            notOkReason = (await response.Content.ReadAsStringAsync()).Replace("\"", "");
-            peers = new List<PeerProfile>();
-            await InvokeAsync(StateHasChanged);
-            await ScrollToTop();
+            peers = new List<PeerProfile>(); 
+            await base.SetErrorMessage((await response.Content.ReadAsStringAsync()).Replace("\"", ""));
         }
     }
 
@@ -209,7 +203,7 @@ else
 
     private async Task UpdateIpAddressSearch(string? newIp)
     {
-        profilesToSearch.AllowedIPs= newIp;
+        profilesToSearch.AllowedIPs = newIp;
         await SearchProfiles();
     }
 
@@ -234,33 +228,16 @@ else
 
         HttpResponseMessage response = await client.DeleteAsync(peersPath);
 
-        if(response.IsSuccessStatusCode)
+        if (response.IsSuccessStatusCode)
         {
-            ok = true;
+            await base.ClearErrorMessage();
             await GetPeers();
             await SearchProfiles(); // re-run user's search in case they searched before deleting peer
         }
-        else if(response.StatusCode == HttpStatusCode.Unauthorized)
-        {
-            await LocalStorage.RemoveItemAsync("WireguardApiToken");
-            await AuthStateProvider.GetAuthenticationStateAsync();
-            NavigationManager.NavigateTo("/login");
-        }
+        else if (response.StatusCode == HttpStatusCode.Unauthorized)
+            await base.LogoutUser();
         else
-        {
-            ok = false;
-            notOkReason = (await response.Content.ReadAsStringAsync()).Replace("\"", "");
-            await InvokeAsync(StateHasChanged);
-            await ScrollToTop();
-        }
+            await base.SetErrorMessage((await response.Content.ReadAsStringAsync()).Replace("\"", ""));
 
-    }
-
-    private async Task ScrollToTop()
-    {
-        string id = "top";
-        var js = "window.scrollToId";
-        await JsRuntime.InvokeVoidAsync(js, id);
     }
 }
-

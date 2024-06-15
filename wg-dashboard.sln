@@ -11,7 +11,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WgDashboard.Api", "WgDashboard.Api\WgDashboard.Api.csproj", "{9879010E-5C95-46CC-A303-9342B46BEC7B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WgDashboard.Website", "WgDashboard.Website\WgDashboard.Website.csproj", "{A01BFCF9-7C45-44BA-AFC6-14E6E79620A7}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WgDashboard.Website", "WgDashboard.Website\WgDashboard.Website.csproj", "{A01BFCF9-7C45-44BA-AFC6-14E6E79620A7}"
 EndProject
 Project("{888888A0-9F3D-457C-B088-3A5042F75D52}") = "WgDashboard.Tests", "WgDashboard.Tests\WgDashboard.Tests.pyproj", "{65D3DDF3-F38C-4E6D-95A7-7E38008D44B7}"
 EndProject

@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Components.Authorization;
 using System.Net.Http.Headers;
 using System.Security.Claims;
 using System.Text.Json;
-using WgDashboard.Website.Models;
+using WgDashboard.Website.Helpers;
 
 namespace WgDashboard.Website.Services
 {
@@ -25,33 +25,16 @@ namespace WgDashboard.Website.Services
             var identity = new ClaimsIdentity();
             _httpClient.DefaultRequestHeaders.Authorization = null;
             IEnumerable<Claim>? claims = null;
+            Dictionary<string, string>? claimsDict = null;
 
             // parse the JWT token and set authentication state
-            if(token is not null && token != "")
+            if(!string.IsNullOrEmpty(token))
             {
-                claims = ParseClaimsFromJwt(token) ?? new Claim[] { new Claim(ClaimTypes.Role, UserRoles.Anonymous) };
-                int id = 0;
-                string username = "";
-                string userRole = UserRoles.Anonymous;
-                string? name = null;
-                foreach(Claim claim in claims)
-                {
-                    if (claim.Type == ClaimTypes.Sid)
-                    {
-                        if (!int.TryParse(claim.Value, out id))
-                            id = 0;
-                    }
-                    else if (claim.Type == ClaimTypes.NameIdentifier)
-                        username = claim.Value ?? "";
-                    else if (claim.Type == ClaimTypes.Role)
-                        userRole = claim.Value ?? UserRoles.Anonymous;
-                    else if (claim.Type == ClaimTypes.Name)
-                        name = claim.Value;
-                }
-                identity = new ClaimsIdentity(claims, "jwt");
                 _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token.Replace("\"", ""));
-
-                AuthState.SetAuthenticatedUser(id, username, userRole, name);
+                claims = ParseClaimsFromJwt(token) ?? new Claim[] { new Claim(ClaimTypes.Role, UserRoles.Anonymous) };
+                claimsDict = ParseClaimsFromJwtAsDict(token) ?? new Dictionary<string, string>(); // just for readibility later
+                identity = new ClaimsIdentity(claims, "jwt");
+                SetAuthState(claimsDict);
             }
             else
             {
@@ -66,12 +49,6 @@ namespace WgDashboard.Website.Services
             return state;
         }
 
-        public async void LogoutUser()
-        {
-            await _localStorage.RemoveItemAsync("WireguardApiToken");
-            await GetAuthenticationStateAsync();
-        }
-
         private static IEnumerable<Claim>? ParseClaimsFromJwt(string jwt)
         {
             var jwtSections = jwt.Split('.');
@@ -79,10 +56,33 @@ namespace WgDashboard.Website.Services
             {
                 return null;
             }
+
             var payload = jwtSections[1];
             var jsonBytes = ParseBase64WithoutPadding(payload);
             var claims = JsonSerializer.Deserialize<Dictionary<string, object>>(jsonBytes);
+            var result = new Dictionary<string, string>();
             return claims?.Select((jwtClaim) => new Claim(jwtClaim.Key ?? "", jwtClaim.Value?.ToString() ?? ""));
+        }
+
+        private static Dictionary<string, string>? ParseClaimsFromJwtAsDict(string jwt)
+        {
+            var jwtSections = jwt.Split('.');
+            if(jwtSections.Length != 3)
+            {
+                return null;
+            }
+
+            var payload = jwtSections[1];
+            var jsonBytes = ParseBase64WithoutPadding(payload);
+            var claims = JsonSerializer.Deserialize<Dictionary<string, object>>(jsonBytes);
+            var result = new Dictionary<string, string>();
+            if (claims is null)
+                return null;
+            foreach(string key in claims.Keys)
+            {
+                result.Add(key, claims[key]?.ToString() ?? "");
+            }
+            return result;
         }
 
         private static byte[] ParseBase64WithoutPadding(string base64)
@@ -99,6 +99,24 @@ namespace WgDashboard.Website.Services
             }
 
             return Convert.FromBase64String(result);
+        }
+
+        private void SetAuthState(Dictionary<string, string> claims) 
+        {
+            int id;
+            if (!int.TryParse(claims.GetValueOrDefault(ClaimTypes.Sid, "0"), out id))
+                id = 0;
+            string username = claims.GetValueOrDefault(ClaimTypes.NameIdentifier, "");
+            string userRole = claims.GetValueOrDefault(ClaimTypes.Role, UserRoles.Anonymous);
+            string? name = claims.GetValueOrDefault(ClaimTypes.Name, "");
+            if (name == "")
+                name = null;
+            long expiration;
+            if (!long.TryParse(claims.GetValueOrDefault("exp", "-1"), out expiration))
+                expiration = -1;
+
+            AuthState.SetAuthenticatedUser(id, username, userRole, name, expiration);
+        
         }
 
     }

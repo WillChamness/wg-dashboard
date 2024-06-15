@@ -3,6 +3,10 @@
 @using System.Text
 @using WgDashboard.Website.Helpers
 @inject NavigationManager NavigationManager
+@inject ILocalStorageService LocalStorage
+@inject AuthenticationStateProvider AuthStateProvider
+@inject IConfiguration WebsiteConfig
+@inject HttpClient client
 
 <h3>Login</h3>
 <hr />

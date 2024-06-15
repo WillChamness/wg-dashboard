@@ -1,0 +1,156 @@
+﻿@page "/profiles"
+@using System.Text.Json
+@using System.Net
+@using System.Text
+@using WgDashboard.Website.Helpers
+@inherits BasePageFunctionality
+@attribute [Authorize(Roles = "admin,user")]
+
+@if(users is null)
+{
+    <p>Loading...</p>
+}
+else
+{
+    @if (!ok)
+    {
+        <div class="row">
+            <div class="col-md-4">
+                <p class="text-danger">@notOkReason</p>
+            </div>
+        </div>
+    }
+    if(AuthState.Role == UserRoles.Admin)
+    {
+        <h3>User Profiles</h3>
+        <div class="row" style="overflow-x: scroll; max-height: 350px; overflow-y: scroll;">
+            <div class="col-md-12">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>User ID</th>
+                            <th>Name</th>
+                            <th>Username</th>
+                            <th>Role</th>
+                            <th>Make Admin</th>
+                            <th>Delete User</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if(true) @* use meaningless conditional to declare variable *@
+                        {
+                            int i = 0; // using for loop causes overflow exception when searching for users
+                            @foreach (UserProfile user in users)
+                            {
+                                if(user.Id != AuthState.Id)
+                                {
+                                    int buffer = i;
+                                    string backgroundColor = buffer % 2 == 0 ? "table-light" : "table-secondary";
+                                    <tr class=@backgroundColor>
+                                        <td>@user.Id</td>
+                                        <td>@user.Name</td>
+                                        <td>@user.Username</td>
+                                        <td>@user.Role</td>
+                                        <td><input type="button" class="btn btn-warning" value="Make Admin" @onclick="() => MakeAdmin(buffer)"/></td>
+                                        <td><input type="button" class="btn btn-danger" value="Delete" @onclick="() => DeleteUser(buffer)" /></td>
+                                    </tr>
+                                }
+                                i++;
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+}
+
+
+@code {
+    List<UserProfile>? users;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        await GetAllUsers();
+    }
+
+    private async Task GetAllUsers()
+    {
+        string uri = WebsiteConfig.GetSection("WireguardApiConfig").GetValue<string>("UserRoute") ?? "/api/users";
+
+        HttpResponseMessage response = await client.GetAsync(uri);
+        if (response.IsSuccessStatusCode)
+        {
+            List<UserProfile>? userProfiles = await response.Content.ReadFromJsonAsync<List<UserProfile>>(
+                new JsonSerializerOptions() { PropertyNameCaseInsensitive = true }
+            );
+
+            users = new List<UserProfile>();
+            if (userProfiles is not null)
+                users = userProfiles;
+            await base.ClearErrorMessage();
+        }
+        else if (response.StatusCode == HttpStatusCode.Unauthorized)
+            await base.LogoutUser();
+        else
+            await base.SetErrorMessage((await response.Content.ReadAsStringAsync()).Replace("\"", ""));
+    }
+
+    private async Task DeleteUser(int userIndex)
+    {
+        bool confirmed = await base.JSRuntime.InvokeAsync<bool>("confirm", "Are you sure? This will delete the user and all peers attached forever.");
+        if (!confirmed)
+            return;
+        UserProfile user = users![userIndex]; // users validated not null by OnInitializedAsync() at this point
+        string uri = WebsiteConfig.GetSection("WireguardApiConfig").GetValue<string>("UserRoute") ?? "/api/users";
+        uri += "/" + user.Id;
+
+        HttpResponseMessage response = await client.DeleteAsync(uri);
+        if (response.IsSuccessStatusCode)
+            await GetAllUsers(); // UI will be updated here. no need to do it again
+        else if (response.StatusCode == HttpStatusCode.Unauthorized)
+            await base.LogoutUser();
+        else
+            await base.SetErrorMessage((await response.Content.ReadAsStringAsync()).Replace("\"", ""));
+    }
+
+    private async Task MakeAdmin(int userIndex)
+    {
+        string username = users![userIndex].Username; // users confirmed to be not null at this point
+        bool confirmed = await base.JSRuntime.InvokeAsync<bool>("confirm", $"Make '{username}' admin?");
+        if (!confirmed)
+            return;
+        confirmed = await base.JSRuntime.InvokeAsync<bool>("confirm", $"Are you sure? The only way to undo this is to delete '{username}'");
+        if (!confirmed)
+            return;
+
+        var updatedUser = new UpdateUserRequest()
+        {
+            Id = users![userIndex].Id,
+            Username = users![userIndex].Username,
+            Name = users![userIndex].Name,
+            Role = UserRoles.Admin,
+        };
+
+        string? userRoute = WebsiteConfig.GetSection("WireguardApiConfig").GetValue<string>("UserRoute");
+        if (userRoute is not null)
+            userRoute += "/" + updatedUser.Id;
+        else
+            userRoute = "/api/users/" + updatedUser.Id;
+
+        string json = JsonSerializer.Serialize(updatedUser);
+        HttpContent content = new StringContent(json, Encoding.UTF8, "application/json");
+        HttpResponseMessage response = await client.PutAsync(userRoute, content);
+
+        if (response.IsSuccessStatusCode)
+        {
+            users![userIndex].Role = "admin";
+            await base.ClearErrorMessage();
+        }
+        else if (response.StatusCode == HttpStatusCode.Unauthorized)
+            await base.LogoutUser();
+        else
+            await base.SetErrorMessage((await response.Content.ReadAsStringAsync()).Replace("\"", ""));
+    }
+}
