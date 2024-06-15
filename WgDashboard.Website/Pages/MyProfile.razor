@@ -67,7 +67,7 @@ else
 
     private async Task GetUserProfile() 
     {
-        string uri = WebsiteConfig.GetSection("WireguardApiConfig").GetValue<string>("UserRoute") ?? "/api/users";
+        string uri = WebsiteConfig.GetSection("WireguardApiConfig").GetValue<string>("UserPath") ?? "/api/users";
         uri += "/" + AuthState.Id;
 
         HttpResponseMessage response = await client.GetAsync(uri);
@@ -99,7 +99,7 @@ else
             return;
         }
 
-        string? authRoute = WebsiteConfig.GetSection("WireguardApiConfig").GetValue<string>("AuthRoute");
+        string? authRoute = WebsiteConfig.GetSection("WireguardApiConfig").GetValue<string>("AuthPath");
         if (authRoute is not null)
             authRoute += "/passwd/";
         else

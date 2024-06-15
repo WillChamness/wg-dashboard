@@ -48,7 +48,6 @@
     private async void SubmitLogin()
     {
         string jwt = ""; 
-
         loginFailed = false;
 
         // guard against bad input
@@ -60,7 +59,7 @@
             return;
         }
 
-        string? authRoute = WebsiteConfig.GetSection("WireguardApiConfig").GetValue<string>("AuthRoute");
+        string? authRoute = WebsiteConfig.GetSection("WireguardApiConfig").GetValue<string>("AuthPath");
         if (authRoute is not null)
             authRoute += "/login";
         else

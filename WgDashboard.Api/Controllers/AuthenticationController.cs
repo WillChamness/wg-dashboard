@@ -135,7 +135,32 @@ namespace WgDashboard.Api.Controllers
 
             // success
             return NoContent();
-            
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
+        [HttpGet("refresh")]
+        [Authorize(Roles = "admin,user")]
+        [Produces("application/json")]
+        [Consumes("application/json")]
+        public async Task<ActionResult> RefreshToken()
+        {
+            User? user = await _identity.GetUserFromJwtAsync(HttpContext);
+            if (user is null)
+                return BadRequest("Bad JWT token");
+
+            UserProfile userProfile = new UserProfile()
+            {
+                Id = user.Id,
+                Username = user.Username,
+                Name = user.Name,
+                Role = user.Role,
+            };
+
+            string jwt = _identity.GenerateToken(userProfile);
+            return Ok(jwt);
         }
     }
 }

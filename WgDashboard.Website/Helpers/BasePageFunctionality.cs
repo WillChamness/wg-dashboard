@@ -63,5 +63,10 @@ namespace WgDashboard.Website.Helpers
             await AuthStateProvider.GetAuthenticationStateAsync();
             NavigationManager.NavigateTo("/login", true);
         }
+
+        private async Task RefreshJwt()
+        {
+
+        }
     }
 }

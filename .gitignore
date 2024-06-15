@@ -398,6 +398,7 @@ FodyWeavers.xsd
 *.sln.iml
 
 appsettings.json
+!WgDashboard.Website/wwwroot/appsettings.json
 .config/
 
 

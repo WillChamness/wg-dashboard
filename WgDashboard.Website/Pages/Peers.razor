@@ -2,7 +2,6 @@
 @using System.Text.Json
 @using System.Net
 @using WgDashboard.Website.Helpers
-@inject IJSRuntime JsRuntime
 @inherits BasePageFunctionality
 @attribute [Authorize(Roles = "admin,user")]
 
@@ -137,12 +136,12 @@ else
 
         if (AuthState.Role == UserRoles.Admin)
         {
-            peersPath = apiConfig.GetValue<string>("PeersRoute");
+            peersPath = apiConfig.GetValue<string>("PeersPath");
             peersPath ??= "/api/peers";
         }
         else
         {
-            peersPath = apiConfig.GetValue<string>("PeersByOwnerIdRoute");
+            peersPath = apiConfig.GetValue<string>("PeersByOwnerIdPath");
             peersPath ??= "/api/peers/owner";
             peersPath += $"/{AuthState.Id}";
         }
@@ -215,7 +214,7 @@ else
 
     private async Task DeletePeer(int displayedPeersIndex)
     {
-        bool confirmed = await JsRuntime.InvokeAsync<bool>("confirm", "Are you sure? This will delete the peer forever.");
+        bool confirmed = await base.JSRuntime.InvokeAsync<bool>("confirm", "Are you sure? This will delete the peer forever.");
         if (!confirmed)
             return;
 

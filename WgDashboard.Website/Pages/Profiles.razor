@@ -77,7 +77,7 @@ else
 
     private async Task GetAllUsers()
     {
-        string uri = WebsiteConfig.GetSection("WireguardApiConfig").GetValue<string>("UserRoute") ?? "/api/users";
+        string uri = WebsiteConfig.GetSection("WireguardApiConfig").GetValue<string>("UserPath") ?? "/api/users";
 
         HttpResponseMessage response = await client.GetAsync(uri);
         if (response.IsSuccessStatusCode)
@@ -103,7 +103,7 @@ else
         if (!confirmed)
             return;
         UserProfile user = users![userIndex]; // users validated not null by OnInitializedAsync() at this point
-        string uri = WebsiteConfig.GetSection("WireguardApiConfig").GetValue<string>("UserRoute") ?? "/api/users";
+        string uri = WebsiteConfig.GetSection("WireguardApiConfig").GetValue<string>("UserPath") ?? "/api/users";
         uri += "/" + user.Id;
 
         HttpResponseMessage response = await client.DeleteAsync(uri);
@@ -133,7 +133,7 @@ else
             Role = UserRoles.Admin,
         };
 
-        string? userRoute = WebsiteConfig.GetSection("WireguardApiConfig").GetValue<string>("UserRoute");
+        string? userRoute = WebsiteConfig.GetSection("WireguardApiConfig").GetValue<string>("UserPath");
         if (userRoute is not null)
             userRoute += "/" + updatedUser.Id;
         else

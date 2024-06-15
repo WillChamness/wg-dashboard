@@ -68,7 +68,7 @@
         if (signupRequest.Name == "")
             signupRequest.Name = null;
 
-        string? signupRoute = WebsiteConfig.GetSection("WireguardApiConfig").GetValue<string>("AuthRoute");
+        string? signupRoute = WebsiteConfig.GetSection("WireguardApiConfig").GetValue<string>("AuthPath");
         if (signupRoute is not null)
             signupRoute += "/signup";
         else
