@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.JSInterop;
 using System.Diagnostics.CodeAnalysis;
+using System.Net;
 using WgDashboard.Website.Services;
 
 namespace WgDashboard.Website.Helpers
@@ -29,9 +30,9 @@ namespace WgDashboard.Website.Helpers
         protected override async Task OnInitializedAsync()
         {
             if (AuthState.Expired)
-            {
                 await LogoutUser();
-            }
+            else
+                await RefreshJwt();
             await base.OnInitializedAsync();            
         }
 
@@ -66,7 +67,24 @@ namespace WgDashboard.Website.Helpers
 
         private async Task RefreshJwt()
         {
+            string url = WebsiteConfig.GetSection("WireguardApiConfig").GetValue<string>("AuthRoute")
+                ?? "/api/auth";
+            url += "/refresh";
 
+            HttpResponseMessage response = await client.GetAsync(url);
+            if (response.IsSuccessStatusCode)
+            {
+                string jwt = (await response.Content.ReadAsStringAsync()).Replace("\"", "");
+                await LocalStorage.SetItemAsync("WireguardApiToken", jwt);
+                await AuthStateProvider.GetAuthenticationStateAsync();
+            }
+            else if (response.StatusCode == HttpStatusCode.Unauthorized)
+                await LogoutUser();
+            else
+            {
+                string error = await response.Content.ReadAsStringAsync();
+                Console.WriteLine(error);
+            }
         }
     }
 }
