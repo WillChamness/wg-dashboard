@@ -106,7 +106,7 @@ namespace WgDashboard.Api.Services
                     _config["JwtSettings:Issuer"],
                     _config["JwtSettings:Audience"],
                     claims,
-                    expires: DateTime.Now.AddMinutes(30),
+                    expires: DateTime.Now.AddMinutes(10),
                     signingCredentials: credentials
                 );
 
