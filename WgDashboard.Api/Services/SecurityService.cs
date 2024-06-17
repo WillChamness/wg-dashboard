@@ -188,18 +188,12 @@ namespace WgDashboard.Api.Services
         private string GenerateHashedPassword(string password)
         {
             string passwordHash = BCrypt.Net.BCrypt.EnhancedHashPassword(password, BCRYPT_WORK_FACTOR);
-            Console.WriteLine("Password: {0}", password);
-            Console.WriteLine("Hashed Password: {0}", passwordHash);
             return passwordHash;
         }
 
         private bool VerifyPassword(string unhashedPassword, string usersHashedPassword)
         {
             bool verified = BCrypt.Net.BCrypt.EnhancedVerify(unhashedPassword, usersHashedPassword);
-            if (!verified)
-                Console.WriteLine("{0} is an incorrect password", unhashedPassword);
-            else
-                Console.WriteLine("{0} is a correct password", unhashedPassword);
             return verified;
         }
     }
