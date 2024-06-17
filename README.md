@@ -1,7 +1,7 @@
 # wg-dashboard
 
 # To do:
-- Password hashing/salting
+- ~~Password hashing/salting~~
 - Create website frontend for API
   - Use Blazor WASM
 - Actually communicate with Wireguard
