@@ -1,10 +1,13 @@
-﻿using Microsoft.Data.SqlClient;
+﻿using BCrypt.Net;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using System.ComponentModel;
 using WgDashboard.Api.Controllers;
 using WgDashboard.Api.Data;
 using WgDashboard.Api.Exceptions;
 using WgDashboard.Api.Models;
+using Microsoft.IdentityModel.Tokens;
+using System.Diagnostics.Eventing.Reader;
 
 namespace WgDashboard.Api.Services
 {
@@ -64,6 +67,7 @@ namespace WgDashboard.Api.Services
         private readonly WireguardDbContext _context;
         private readonly IConfiguration _config;
         private static bool initilized = false;
+        private static readonly int BCRYPT_WORK_FACTOR = 12;
 
         public SecurityService(WireguardDbContext dbContext, IConfiguration config) 
         {
@@ -84,7 +88,7 @@ namespace WgDashboard.Api.Services
                         var newUser = new User()
                         {
                             Username = initialUsername,
-                            Password = initialPassword,
+                            Password = GenerateHashedPassword(initialPassword),
                             Name = "Default Admin",
                             Role = UserRoles.Admin,
                         };
@@ -95,13 +99,22 @@ namespace WgDashboard.Api.Services
             }
         }
 
-        public Task<User?> Authenticate(string? username, string? password)
+        public async Task<User?> Authenticate(string? username, string? password)
         {
             if (username is null || password is null)
                 throw new BadRequestException("Username and password expected but not found");
 
-            return _context.Users.Where((user) => user.Username == username && user.Password == password)
+            User? user = await _context.Users.Where((user) => user.Username == username)
                 .FirstOrDefaultAsync();
+
+            if (user is null)
+                return null;
+
+            bool passwordOk = VerifyPassword(password, user.Password);
+            if (!passwordOk)
+                return null;
+            else
+                return user;
         }
 
         public async Task<User> AddUser(string? username, string? password, string? name)
@@ -118,7 +131,7 @@ namespace WgDashboard.Api.Services
             var newUser = new User()
             {
                 Username = username,
-                Password = password,
+                Password = GenerateHashedPassword(password),
                 Name = name,
                 Role = UserRoles.User,
             };
@@ -159,7 +172,7 @@ namespace WgDashboard.Api.Services
             // try to update password 
             try
             {
-                existingUser.Password = password;
+                existingUser.Password = GenerateHashedPassword(password);
                 await _context.SaveChangesAsync();
             }
             catch(DbUpdateException)
@@ -171,6 +184,23 @@ namespace WgDashboard.Api.Services
                 { throw new InternalServerErrorException("Could not update the database: operation was cancelled"); }
             }
         }
-    }
 
+        private string GenerateHashedPassword(string password)
+        {
+            string passwordHash = BCrypt.Net.BCrypt.EnhancedHashPassword(password, BCRYPT_WORK_FACTOR);
+            Console.WriteLine("Password: {0}", password);
+            Console.WriteLine("Hashed Password: {0}", passwordHash);
+            return passwordHash;
+        }
+
+        private bool VerifyPassword(string unhashedPassword, string usersHashedPassword)
+        {
+            bool verified = BCrypt.Net.BCrypt.EnhancedVerify(unhashedPassword, usersHashedPassword);
+            if (!verified)
+                Console.WriteLine("{0} is an incorrect password", unhashedPassword);
+            else
+                Console.WriteLine("{0} is a correct password", unhashedPassword);
+            return verified;
+        }
+    }
 }
