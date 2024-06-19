@@ -110,7 +110,7 @@ namespace WgDashboard.Api.Services
             if (user is null)
                 return null;
 
-            bool passwordOk = VerifyPassword(password, user.Password);
+            bool passwordOk = await VerifyPasswordAsync(password, user.Password);
             if (!passwordOk)
                 return null;
             else
@@ -131,7 +131,7 @@ namespace WgDashboard.Api.Services
             var newUser = new User()
             {
                 Username = username,
-                Password = GenerateHashedPassword(password),
+                Password = await GenerateHashedPasswordAsync(password),
                 Name = name,
                 Role = UserRoles.User,
             };
@@ -172,7 +172,7 @@ namespace WgDashboard.Api.Services
             // try to update password 
             try
             {
-                existingUser.Password = GenerateHashedPassword(password);
+                existingUser.Password = await GenerateHashedPasswordAsync(password);
                 await _context.SaveChangesAsync();
             }
             catch(DbUpdateException)
@@ -187,14 +187,26 @@ namespace WgDashboard.Api.Services
 
         private string GenerateHashedPassword(string password)
         {
-            string passwordHash = BCrypt.Net.BCrypt.EnhancedHashPassword(password, BCRYPT_WORK_FACTOR);
-            return passwordHash;
+            string hashedPassword = BCrypt.Net.BCrypt.EnhancedHashPassword(password, BCRYPT_WORK_FACTOR);
+            return hashedPassword;
         }
 
         private bool VerifyPassword(string unhashedPassword, string usersHashedPassword)
         {
             bool verified = BCrypt.Net.BCrypt.EnhancedVerify(unhashedPassword, usersHashedPassword);
             return verified;
+        }
+
+        private Task<string> GenerateHashedPasswordAsync(string password)
+        {
+            Task<string> passwordHashTask = Task.Run(() => BCrypt.Net.BCrypt.EnhancedHashPassword(password, BCRYPT_WORK_FACTOR));
+            return passwordHashTask;
+        }
+
+        private Task<bool> VerifyPasswordAsync(string unhashedPassword, string usersHashedPassword)
+        {
+            Task<bool> verifyTask = Task.Run(() => BCrypt.Net.BCrypt.EnhancedVerify(unhashedPassword, usersHashedPassword));
+            return verifyTask;
         }
     }
 }
