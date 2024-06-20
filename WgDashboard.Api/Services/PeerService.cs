@@ -48,7 +48,7 @@ namespace WgDashboard.Api.Services
         /// <exception cref="InternalServerErrorException"></exception>
         /// <exception cref="BadRequestException"></exception>
         /// <exception cref="ResourceNotFoundException"></exception>
-        public Task<PeerProfile> AddPeer(Peer peer);
+        public Task<PeerProfile> AddPeer(NewPeerRequest peer);
 
 
         /// <summary>
@@ -58,7 +58,7 @@ namespace WgDashboard.Api.Services
         /// <exception cref="InternalServerErrorException"></exception>
         /// <exception cref="BadRequestException"></exception>
         /// <exception cref="ResourceNotFoundException"></exception>
-        public Task UpdatePeer(Peer updatedPeer);
+        public Task UpdatePeer(UpdatePeerRequest updatedPeer);
 
 
         /// <summary>
@@ -152,7 +152,7 @@ namespace WgDashboard.Api.Services
             return peerProfiles;
         }
 
-        public async Task<PeerProfile> AddPeer(Peer peer)
+        public async Task<PeerProfile> AddPeer(NewPeerRequest peer)
         {
             // guards against bad inputs
             if (peer.PublicKey is null)
@@ -179,7 +179,14 @@ namespace WgDashboard.Api.Services
             Peer? newPeer;
             try
             {
-                var createdPeer = await _context.Peers.AddAsync(peer);
+                var createdPeer = await _context.Peers.AddAsync(new Peer()
+                {
+                    PublicKey = peer.PublicKey,
+                    AllowedIPs = peer.AllowedIPs,
+                    OwnerId = peer.OwnerId,
+                    DeviceDescription = peer.DeviceDescription,
+                    DeviceType = peer.DeviceType,
+                });
                 await _context.SaveChangesAsync();
                 newPeer = createdPeer.Entity;
             }
@@ -204,7 +211,7 @@ namespace WgDashboard.Api.Services
             };
         }
 
-        public async Task UpdatePeer(Peer updatedPeer)
+        public async Task UpdatePeer(UpdatePeerRequest updatedPeer)
         {
             // guards against bad input
             if (updatedPeer.PublicKey is null)

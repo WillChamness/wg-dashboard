@@ -11,12 +11,17 @@ namespace WgDashboard.Api.Models
         [Key]
         public int Id { get; set; } = 0;
         [Required]
+        [MaxLength(9)]
         public string Role { get; set; } = UserRoles.Anonymous;
         [Required]
+        [MaxLength(255)]
         public string Username { get; set; } = "";
         [Required]
         [JsonIgnore] // just in case
+        [MaxLength(100)]
         public string Password { get; set; } = "";
+
+        [MaxLength(255)]
         public string? Name { get; set; }
     }
 

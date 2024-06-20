@@ -154,7 +154,7 @@ namespace WgDashboard.Api.Controllers
         [Authorize(Roles = "admin,user")]
         [Produces("application/json")]
         [Consumes("application/json")]
-        public async Task<ActionResult<PeerProfile>> AddPeer([FromBody] Peer newPeer)
+        public async Task<ActionResult<PeerProfile>> AddPeer([FromBody] NewPeerRequest newPeer)
         {
             // guard against unauthorized user
             int userId = _identity.GetUserIdFromJwt(HttpContext);
@@ -194,7 +194,7 @@ namespace WgDashboard.Api.Controllers
         [Authorize(Roles = "admin,user")]
         [Produces("application/json")]
         [Consumes("application/json")]
-        public async Task<ActionResult> UpdatePeer(int id, [FromBody]Peer updatedPeer)
+        public async Task<ActionResult> UpdatePeer(int id, [FromBody] UpdatePeerRequest updatedPeer)
         {
             // guard against unauthorized user
             int userId = _identity.GetUserIdFromJwt(HttpContext);
