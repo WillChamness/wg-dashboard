@@ -74,6 +74,8 @@ namespace WgDashboard.Api.Services
                 throw new BadRequestException("Username expected but not found");
             if (!UserRoles.IsValidRole(newRole))
                 throw new BadRequestException("Role not found or is not valid");
+            if (_context.Users.Where((user) => user.Username == newUsername).Any())
+                throw new BadRequestException("Username already taken");
 
             // guard against user not existing
             User? existingUser = await _context.Users.FindAsync(id);
