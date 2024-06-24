@@ -8,6 +8,7 @@ using WgDashboard.Api.Exceptions;
 using WgDashboard.Api.Models;
 using Microsoft.IdentityModel.Tokens;
 using System.Diagnostics.Eventing.Reader;
+using WgDashboard.Api.Helpers;
 
 namespace WgDashboard.Api.Services
 {
@@ -66,32 +67,35 @@ namespace WgDashboard.Api.Services
     {
         private readonly WireguardDbContext _context;
         private readonly IConfiguration _config;
-        private static bool initilized = false;
         private static readonly int BCRYPT_WORK_FACTOR = 12;
 
-        public SecurityService(WireguardDbContext dbContext, IConfiguration config) 
+        public SecurityService(WireguardDbContext dbContext, IConfiguration config, IWebHostEnvironment environment)
         {
             this._context = dbContext;
             this._config = config;
-            // add a default admin on API startup to prevent lockouts by deleting all admins
-            if (!initilized)
+
+            // add a default admin on API startup to prevent lockouts by deleting all admins or forgetting all admin passwords
+            // a new security service is created every time this service is called. keep track of the first time API was initialized 
+            // to prevent arbitrarily creating a user with a possibly weak password
+            if (!SecurityInitialSettings.Initialized)
             {
-                // a new security service is created every time this service is called. keep track of the first time API was initialized 
-                // to prevent arbitrarily creating a user with a possibly weak password
-                initilized = true;
-                if (!_context.Users.Where((user) => user.Role == UserRoles.Admin).Any())
+                SecurityInitialSettings.SetSettings(config, environment);
+
+                if (!_context.Users.Where((user) => user.Role == UserRoles.Admin).Any() && !SecurityInitialSettings.CreateAdmin)
+                    Console.WriteLine("WARNING: No admins found, but settings specify not to initialize any admin.");
+                else if (SecurityInitialSettings.CreateAdmin)
                 {
-                    string? initialUsername = _config.GetSection("InitialAdminCredentials").GetValue<string>("Username");
-                    string? initialPassword = _config.GetSection("InitialAdminCredentials").GetValue<string>("Password");
-                    if (!string.IsNullOrEmpty(initialUsername) && !string.IsNullOrEmpty(initialPassword))
+                    var newUser = new User()
                     {
-                        var newUser = new User()
-                        {
-                            Username = initialUsername,
-                            Password = GenerateHashedPassword(initialPassword),
-                            Name = "Default Admin",
-                            Role = UserRoles.Admin,
-                        };
+                        Username = SecurityInitialSettings.InitialUsername,
+                        Password = GenerateHashedPassword(SecurityInitialSettings.InitialPassword),
+                        Name = SecurityInitialSettings.InitialName,
+                        Role = UserRoles.Admin,
+                    };
+                    if (_context.Users.Where((user) => user.Username == SecurityInitialSettings.InitialUsername).Any())
+                        Console.WriteLine($"WARNING: Cannot create admin because username '{SecurityInitialSettings.InitialUsername}' already exists");
+                    else
+                    {
                         _context.Users.Add(newUser);
                         _context.SaveChanges();
                     }
