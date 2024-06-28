@@ -93,7 +93,7 @@ namespace WgDashboard.Api.Controllers
             if (!_security.CheckUserAuthorized(id, requestingUsersId, requestingUsersRole)) 
                 return NotFound($"User with ID {id} not found"); // return NotFound to hide that there might be a user
             if (requestingUsersRole != UserRoles.Admin && requestingUsersRole != updatedUserProfile.Role) // make sure the user isn't elevating their own privileges
-                return Forbid($"Insufficient priviliges to change user's role");
+                return BadRequest($"Insufficient priviliges to change user's role");
 
             // try to update the profile
             try
