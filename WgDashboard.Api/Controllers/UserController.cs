@@ -76,7 +76,7 @@ namespace WgDashboard.Api.Controllers
         /// </summary>
         /// <param name="id">The ID of the user to be updated, taken from the URL</param>
         /// <param name="updatedUserProfile">The updated user profile, taken from the body</param>
-        /// <returns>An HTTP 200, 400, 403, or 500 response</returns>
+        /// <returns>An HTTP 200, 400, or 500 response</returns>
         [HttpPut("{id}")]
         [Authorize(Roles = "admin,user")]
         [Produces("application/json")]
