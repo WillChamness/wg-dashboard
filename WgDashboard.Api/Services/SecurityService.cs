@@ -69,7 +69,7 @@ namespace WgDashboard.Api.Services
         private readonly IConfiguration _config;
         private static readonly int BCRYPT_WORK_FACTOR = 12;
 
-        public SecurityService(WireguardDbContext dbContext, IConfiguration config, IWebHostEnvironment environment)
+        public SecurityService(WireguardDbContext dbContext, IConfiguration config, IWebHostEnvironment environment, ISecurityInitialSettings securitySettings)
         {
             this._context = dbContext;
             this._config = config;
@@ -77,28 +77,23 @@ namespace WgDashboard.Api.Services
             // add a default admin on API startup to prevent lockouts by deleting all admins or forgetting all admin passwords
             // a new security service is created every time this service is called. keep track of the first time API was initialized 
             // to prevent arbitrarily creating a user with a possibly weak password
-            if (!SecurityInitialSettings.Initialized)
+            if (!_context.Users.Where((user) => user.Role == UserRoles.Admin).Any() && !securitySettings.CreateAdmin)
+                Console.WriteLine("WARNING: No admins found, but settings specify not to initialize any admin.");
+            else if (securitySettings.CreateAdmin)
             {
-                SecurityInitialSettings.SetSettings(config, environment);
-
-                if (!_context.Users.Where((user) => user.Role == UserRoles.Admin).Any() && !SecurityInitialSettings.CreateAdmin)
-                    Console.WriteLine("WARNING: No admins found, but settings specify not to initialize any admin.");
-                else if (SecurityInitialSettings.CreateAdmin)
+                var newUser = new User()
                 {
-                    var newUser = new User()
-                    {
-                        Username = SecurityInitialSettings.InitialUsername,
-                        Password = GenerateHashedPassword(SecurityInitialSettings.InitialPassword),
-                        Name = SecurityInitialSettings.InitialName,
-                        Role = UserRoles.Admin,
-                    };
-                    if (_context.Users.Where((user) => user.Username == SecurityInitialSettings.InitialUsername).Any())
-                        Console.WriteLine($"WARNING: Cannot create admin because username '{SecurityInitialSettings.InitialUsername}' already exists");
-                    else
-                    {
-                        _context.Users.Add(newUser);
-                        _context.SaveChanges();
-                    }
+                    Username = securitySettings.InitialUsername,
+                    Password = GenerateHashedPassword(securitySettings.InitialPassword),
+                    Name = securitySettings.InitialName,
+                    Role = UserRoles.Admin,
+                };
+                if (_context.Users.Where((user) => user.Username == securitySettings.InitialUsername).Any())
+                    Console.WriteLine($"WARNING: Cannot create admin because username '{securitySettings.InitialUsername}' already exists");
+                else
+                {
+                    _context.Users.Add(newUser);
+                    _context.SaveChanges();
                 }
             }
         }

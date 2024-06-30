@@ -4,6 +4,7 @@ using Microsoft.IdentityModel.Protocols.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using WgDashboard.Api.Data;
+using WgDashboard.Api.Helpers;
 using WgDashboard.Api.Services;
 
 
@@ -85,6 +86,7 @@ builder.Services.AddScoped<ISecurityService, SecurityService>();
 builder.Services.AddScoped<IIdentityService, IdentityService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IPeerService, PeerService>();
+builder.Services.AddSingleton<ISecurityInitialSettings, SecurityInitialSettings>();
 
 builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle

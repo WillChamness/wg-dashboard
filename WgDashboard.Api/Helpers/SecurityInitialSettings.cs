@@ -5,18 +5,24 @@ using System.Text.Json;
 
 namespace WgDashboard.Api.Helpers
 {
-    public static class SecurityInitialSettings
+    public interface ISecurityInitialSettings
     {
-        public static string InitialUsername { get; private set; } = "";
-        public static string InitialPassword { get; private set; } = "";
-        public static string InitialName { get; private set; } = "";
-        public static bool Initialized { get; private set; } = false;
-        public static bool CreateAdmin { get; private set; } = false;
+        public string InitialUsername { get; }
+        public string InitialPassword { get; }
+        public string InitialName { get; }
+        public bool CreateAdmin { get; }
+    }
+
+    public sealed class SecurityInitialSettings : ISecurityInitialSettings
+    {
+        public string InitialUsername { get; private set; } = "";
+        public string InitialPassword { get; private set; } = "";
+        public string InitialName { get; private set; } = "";
+        public bool CreateAdmin { get; private set; } = false;
 
 
-        public static void SetSettings(IConfiguration config, IWebHostEnvironment environment)
+        public SecurityInitialSettings(IConfiguration config, IWebHostEnvironment environment)
         {
-            Initialized = true; // this is to let the api know that there's no need to check again in the future
             if(environment.IsDevelopment())
             {
                 InitialUsername = "admin";
