@@ -176,6 +176,18 @@ class test_api_add_peers(unittest.TestCase):
         self.assertLessEqual(response.status_code, 499)
 
 
+    def test_add_bad_publickey(self):
+        public_key = "thisshouldntbeallowed"
+        response = requests.post(
+            self.base_url + "/api/peers",
+            headers={"Authorization": "Bearer " + self.jwt1},
+            json={"publickey": public_key, "allowedips": "127.0.0.1/32", "ownerid": self.user1["sid"]}
+        )
+        self.assertGreaterEqual(response.status_code, 400)
+        self.assertLessEqual(response.status_code, 499)
+
+
+
         
 if __name__ == '__main__':
     unittest.main()
