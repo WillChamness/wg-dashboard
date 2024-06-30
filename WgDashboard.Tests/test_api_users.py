@@ -239,14 +239,81 @@ class TestApiUsers(unittest.TestCase):
         self.assertEqual(body["role"], "admin")
 
 
+    def test_delete_user(self):
+        url = os.getenv("API_URL") 
+        jwt, user = self._signup_and_login(url)
+
+        response = requests.delete(url + "/api/users/" + user["sid"],
+            headers={"Authorization": "Bearer " + jwt}
+        )
+        self.assertTrue(200 <= response.status_code and response.status_code <= 299)
+
+        # make sure the user cant login any more
+        response = requests.post(url + "/api/auth/login", json={
+            "username": user["nameidentifier"],
+            "password": "mypassword",
+        })
+        self.assertTrue(400 <= response.status_code and response.status_code <= 499)
+
+        # make sure that the user cannot access the DB anymore
+        response = requests.get(url + "/api/users/" + user["sid"],
+            headers={"Authorization": "Bearer " + jwt}
+        )
+        self.assertTrue(400 <= response.status_code and response.status_code <= 499)
 
 
-
+    def test_admin_delete_user(self):
+        url = os.getenv("API_URL")
+        jwt, user = self._signup_and_login(url)
         
-
+        response = requests.delete(self.url + "/" + user["sid"],
+            headers={"Authorization": "Bearer " + self.admin_jwt}
+        )
+        self.assertTrue(200 <= response.status_code and response.status_code <= 299)
         
+        # make sure the user cant login any more
+        response = requests.post(url + "/api/auth/login", json={
+            "username": user["nameidentifier"],
+            "password": "mypassword",
+        })
+        self.assertTrue(400 <= response.status_code and response.status_code <= 499)
 
+        # make sure that the user cannot access the DB anymore
+        response = requests.get(url + "/api/users/" + user["sid"],
+            headers={"Authorization": "Bearer " + jwt}
+        )
+        self.assertTrue(400 <= response.status_code and response.status_code <= 499)
+
+
+    def test_delete_other_user(self):
+        response = requests.delete(self.url + "/" + self.user1["sid"],
+            headers={"Authorization": "Bearer " + self.jwt2} # unauthorized user
+        )
+        self.assertTrue(400 <= response.status_code and response.status_code <= 499)
+
+        # make sure the user can still login
+        response = requests.post(os.getenv("API_URL") + "/api/auth/login",
+            json={"username": self.user1["nameidentifier"], "password": "mypassword"}
+        )
+        self.assertTrue(200 <= response.status_code and response.status_code <= 200)
+        new_jwt = response.content.decode().replace("\"", "")
+        self.assertGreater(len(new_jwt), 0)
+
+        # make sure the user can still access profile
+        response = requests.get(self.url + "/" + self.user1["sid"],
+            headers={"Authorization" : "Bearer " + new_jwt}
+        )
+        self.assertTrue(200 <= response.status_code and response.status_code <= 299)
+        
+        body = json.loads(response.content.decode())
+        self.assertIsInstance(body, dict)
+        body = {key.lower(): value for key, value in body.items()}
+
+        self.assertEqual(body["id"], int(self.user1["sid"]))
+        self.assertEqual(body["username"], self.user1["nameidentifier"])
+        self.assertEqual(body["role"], self.user1["role"])
     
+
 
 if __name__ == '__main__':
     unittest.main()
