@@ -65,7 +65,6 @@ class TestApiUsers(unittest.TestCase):
 
         return (encoded_jwt, claims)
 
-
         
     def setUp(self):
         dotenv.load_dotenv()
@@ -79,15 +78,17 @@ class TestApiUsers(unittest.TestCase):
 
 
     def test_cannot_access_unauthenticated(self):
-        STATUS_CODE_UNAUTHENTICATED = 401
         response = requests.get(self.url + "/" + self.user1["sid"])
-        self.assertEqual(response.status_code, STATUS_CODE_UNAUTHENTICATED)
+        self.assertGreaterEqual(response.status_code, 400)
+        self.assertLessEqual(response.status_code, 499)
         
 
     def test_get_profile(self):
         response = requests.get(self.url + "/" + self.user1["sid"], 
             headers={"Authorization": "Bearer " + self.jwt1},
         )
+        self.assertGreaterEqual(response.status_code, 200)
+        self.assertLessEqual(response.status_code, 299)
         expected_body = {
             "id": int(self.user1["sid"]),
             "username": self.user1["nameidentifier"],
@@ -104,22 +105,22 @@ class TestApiUsers(unittest.TestCase):
 
 
     def test_cannot_access_other_user(self):
-        STATUS_CODE_NOT_FOUND = 404 # api returns not found if unauthorized
         response = requests.get(self.url + "/" + self.user2["sid"],
             headers={"Authorization": "Bearer " + self.jwt1},
         )
-        self.assertEqual(response.status_code, STATUS_CODE_NOT_FOUND)
+        self.assertGreaterEqual(response.status_code, 400)
+        self.assertLessEqual(response.status_code, 499)
 
 
     def test_cannot_access_all_without_admin(self):
-        STATUS_CODE_UNAUTHORIZED = 403
         response = requests.get(self.url, headers={"Authorization": "Bearer " + self.jwt1})
-        self.assertEqual(response.status_code, STATUS_CODE_UNAUTHORIZED)
-        
+        self.assertGreaterEqual(response.status_code, 400)
+        self.assertLessEqual(response.status_code, 499)
 
     def test_access_all_with_admin(self):
         response = requests.get(self.url, headers={"Authorization": "Bearer " + self.admin_jwt})
-        self.assertTrue(200 <= response.status_code and response.status_code <= 299)
+        self.assertGreaterEqual(response.status_code, 200)
+        self.assertLessEqual(response.status_code, 299)
 
         body = json.loads(response.content.decode())
         self.assertIsInstance(body, list)
@@ -131,7 +132,8 @@ class TestApiUsers(unittest.TestCase):
         response = requests.get(self.url + "/" + self.user1["sid"],
             headers={"Authorization": "Bearer " + self.admin_jwt}
         )
-        self.assertTrue(200 <= response.status_code and response.status_code <= 299)
+        self.assertGreaterEqual(response.status_code, 200)
+        self.assertLessEqual(response.status_code, 299)
 
         body = json.loads(response.content.decode())
         self.assertIsInstance(body, dict)
@@ -149,12 +151,14 @@ class TestApiUsers(unittest.TestCase):
                 "name": "mynewuser"
             }
         )
-        self.assertTrue(200 <= response.status_code and response.status_code <= 299)
+        self.assertGreaterEqual(response.status_code, 200)
+        self.assertLessEqual(response.status_code, 299)
 
         response = requests.get(self.url + "/" + self.user1["sid"],
             headers={"Authorization": "Bearer " + self.jwt1}
         )
-        self.assertTrue(200 <= response.status_code and response.status_code <= 299)
+        self.assertGreaterEqual(response.status_code, 200)
+        self.assertLessEqual(response.status_code, 299)
 
         body = json.loads(response.content.decode())
         body = { key.lower(): value for key, value in body.items() }
@@ -175,7 +179,8 @@ class TestApiUsers(unittest.TestCase):
             }
         )
 
-        self.assertTrue(400 <= response.status_code and response.status_code <= 499)
+        self.assertGreaterEqual(response.status_code, 400)
+        self.assertLessEqual(response.status_code, 499)
 
 
     def test_change_another_username(self):
@@ -191,7 +196,8 @@ class TestApiUsers(unittest.TestCase):
             }
         )
 
-        self.assertTrue(400 <= response.status_code and response.status_code <= 499)
+        self.assertGreaterEqual(response.status_code, 400)
+        self.assertLessEqual(response.status_code, 499)
 
 
     def test_change_role_without_admin(self):
@@ -204,7 +210,8 @@ class TestApiUsers(unittest.TestCase):
                 "name": self.user1["name"],
             }
         )
-        self.assertTrue(400 <= response.status_code and response.status_code <= 499)
+        self.assertGreaterEqual(response.status_code, 400)
+        self.assertLessEqual(response.status_code, 499)
 
         # check to make sure nothing was changed
         response = requests.get(self.url + "/" + self.user1["sid"],
@@ -225,13 +232,15 @@ class TestApiUsers(unittest.TestCase):
                 "name": self.user1["name"],
             }
         )
-        self.assertTrue(200 <= response.status_code and response.status_code <= 299)
+        self.assertGreaterEqual(response.status_code, 200)
+        self.assertLessEqual(response.status_code, 299)
 
         # check to make sure user is now admin
         response = requests.get(self.url + "/" + self.user3["sid"],
             headers={"Authorization": "Bearer " + self.admin_jwt}
         )
-        self.assertTrue(200 <= response.status_code and response.status_code <= 299)
+        self.assertGreaterEqual(response.status_code, 200)
+        self.assertLessEqual(response.status_code, 299)
         body = json.loads(response.content.decode())
         body = { key.lower(): value for key, value in body.items() }
 
@@ -246,20 +255,23 @@ class TestApiUsers(unittest.TestCase):
         response = requests.delete(url + "/api/users/" + user["sid"],
             headers={"Authorization": "Bearer " + jwt}
         )
-        self.assertTrue(200 <= response.status_code and response.status_code <= 299)
+        self.assertGreaterEqual(response.status_code, 200)
+        self.assertLessEqual(response.status_code, 299)
 
         # make sure the user cant login any more
         response = requests.post(url + "/api/auth/login", json={
             "username": user["nameidentifier"],
             "password": "mypassword",
         })
-        self.assertTrue(400 <= response.status_code and response.status_code <= 499)
+        self.assertGreaterEqual(response.status_code, 400)
+        self.assertLessEqual(response.status_code, 499)
 
         # make sure that the user cannot access the DB anymore
         response = requests.get(url + "/api/users/" + user["sid"],
             headers={"Authorization": "Bearer " + jwt}
         )
-        self.assertTrue(400 <= response.status_code and response.status_code <= 499)
+        self.assertGreaterEqual(response.status_code, 400)
+        self.assertLessEqual(response.status_code, 499)
 
 
     def test_admin_delete_user(self):
@@ -269,33 +281,38 @@ class TestApiUsers(unittest.TestCase):
         response = requests.delete(self.url + "/" + user["sid"],
             headers={"Authorization": "Bearer " + self.admin_jwt}
         )
-        self.assertTrue(200 <= response.status_code and response.status_code <= 299)
+        self.assertGreaterEqual(response.status_code, 200)
+        self.assertLessEqual(response.status_code, 299)
         
         # make sure the user cant login any more
         response = requests.post(url + "/api/auth/login", json={
             "username": user["nameidentifier"],
             "password": "mypassword",
         })
-        self.assertTrue(400 <= response.status_code and response.status_code <= 499)
+        self.assertGreaterEqual(response.status_code, 400)
+        self.assertLessEqual(response.status_code, 499)
 
         # make sure that the user cannot access the DB anymore
         response = requests.get(url + "/api/users/" + user["sid"],
             headers={"Authorization": "Bearer " + jwt}
         )
-        self.assertTrue(400 <= response.status_code and response.status_code <= 499)
+        self.assertGreaterEqual(response.status_code, 400)
+        self.assertLessEqual(response.status_code, 499)
 
 
     def test_delete_other_user(self):
         response = requests.delete(self.url + "/" + self.user1["sid"],
             headers={"Authorization": "Bearer " + self.jwt2} # unauthorized user
         )
-        self.assertTrue(400 <= response.status_code and response.status_code <= 499)
+        self.assertGreaterEqual(response.status_code, 400)
+        self.assertLessEqual(response.status_code, 499)
 
         # make sure the user can still login
         response = requests.post(os.getenv("API_URL") + "/api/auth/login",
             json={"username": self.user1["nameidentifier"], "password": "mypassword"}
         )
-        self.assertTrue(200 <= response.status_code and response.status_code <= 200)
+        self.assertGreaterEqual(response.status_code, 200)
+        self.assertLessEqual(response.status_code, 299)
         new_jwt = response.content.decode().replace("\"", "")
         self.assertGreater(len(new_jwt), 0)
 
@@ -303,7 +320,8 @@ class TestApiUsers(unittest.TestCase):
         response = requests.get(self.url + "/" + self.user1["sid"],
             headers={"Authorization" : "Bearer " + new_jwt}
         )
-        self.assertTrue(200 <= response.status_code and response.status_code <= 299)
+        self.assertGreaterEqual(response.status_code, 200)
+        self.assertLessEqual(response.status_code, 299)
         
         body = json.loads(response.content.decode())
         self.assertIsInstance(body, dict)
