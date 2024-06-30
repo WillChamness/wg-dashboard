@@ -10,6 +10,7 @@
 - Dynamically allocate IP addresses
   - DHCP over HTTP??
   - Figure out some way to expire IP address allocations
+- Implement accountability
 - Add docs 
   - To README
   - To API code
