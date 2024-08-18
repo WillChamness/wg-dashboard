@@ -30,6 +30,9 @@
     <Compile Include="test_api_connection.py">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="test_api_refresh.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="test_api_users.py">
       <SubType>Code</SubType>
     </Compile>
