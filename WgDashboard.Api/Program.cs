@@ -35,6 +35,7 @@ builder.Services.AddCors(opts =>
     opts.AddPolicy(name: "DefaultCorsPolicy", policy =>
     {
         policy.WithOrigins(browserUrl)
+        .AllowCredentials() // TODO: figure out why this doesnt allow the browser to store the cookie
         .AllowAnyMethod()
         .AllowAnyHeader()
         .SetIsOriginAllowed(origin => true);

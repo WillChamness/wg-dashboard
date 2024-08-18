@@ -4,6 +4,9 @@ using Microsoft.IdentityModel.Protocols.Configuration;
 
 namespace WgDashboard.Api.Data
 {
+    /// <summary>
+    /// For Database Migrations
+    /// </summary>
     public class WireguardDbContextFactory : IDesignTimeDbContextFactory<WireguardDbContext>
     {
         public WireguardDbContext CreateDbContext(string[] args)

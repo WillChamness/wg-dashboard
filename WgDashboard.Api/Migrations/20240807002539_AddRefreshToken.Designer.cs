@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using WgDashboard.Api.Data;
 
@@ -11,9 +12,11 @@ using WgDashboard.Api.Data;
 namespace WgDashboard.Api.Migrations
 {
     [DbContext(typeof(WireguardDbContext))]
-    partial class WireguardDbContextModelSnapshot : ModelSnapshot
+    [Migration("20240807002539_AddRefreshToken")]
+    partial class AddRefreshToken
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

@@ -2,8 +2,10 @@
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 using WgDashboard.Api.Data;
+using WgDashboard.Api.Exceptions;
 using WgDashboard.Api.Models;
 
 namespace WgDashboard.Api.Services
@@ -67,6 +69,23 @@ namespace WgDashboard.Api.Services
         /// <param name="httpContext">The HTTP context containing the JWT token</param>
         /// <returns>The user's role if the role is found in the token; otherwise an anonymous role</returns>
         public string GetUserRoleFromJwt(HttpContext httpContext);
+
+        /// <summary>
+        /// Mutates the HttpContext such that the refresh token is added as a cookie
+        /// </summary>
+        /// <param name="user"></param>
+        /// <param name="httpContext"></param>
+        /// <returns></returns>
+        public Task SetRefreshToken(User user, HttpContext httpContext);
+
+        /// <summary>
+        /// Generates a new JWT token. Also mutates the HttpContext to rotate the refresh token.
+        /// </summary>
+        /// <param name="httpContext"></param>
+        /// <returns>A JWT token</returns>
+        public Task<string> RefreshToken(HttpContext httpContext);
+        
+        public Task RevokeRefreshToken(HttpContext httpContext);
     }
 
 
@@ -77,11 +96,14 @@ namespace WgDashboard.Api.Services
     {
         private readonly IConfiguration _config;
         private readonly WireguardDbContext _context;
+        private readonly IWebHostEnvironment _env;
+        private const double refreshTokenExpiry = 2.0;
 
-        public IdentityService(IConfiguration apiConfig, WireguardDbContext dbContext)
+        public IdentityService(IConfiguration apiConfig, WireguardDbContext dbContext, IWebHostEnvironment environment)
         {
             this._config = apiConfig;
             this._context = dbContext;
+            this._env = environment;
         }
 
         public async Task<bool> CheckUserExistsAsync(int id)
@@ -106,7 +128,7 @@ namespace WgDashboard.Api.Services
                     _config["JwtSettings:Issuer"],
                     _config["JwtSettings:Audience"],
                     claims,
-                    expires: DateTime.Now.AddMinutes(10),
+                    expires: DateTime.Now.AddMinutes(15),
                     signingCredentials: credentials
                 );
 
@@ -178,6 +200,80 @@ namespace WgDashboard.Api.Services
 
             IEnumerable<Claim> identityClaims = identity.Claims;
             return identityClaims.FirstOrDefault((claim) => claim.Type == ClaimTypes.Role)?.Value ?? UserRoles.Anonymous;
+        }
+
+        private string GenerateRandomRefreshToken()
+        {
+            var randomNumber = new byte[64];
+            using var generator = RandomNumberGenerator.Create();
+            generator.GetBytes(randomNumber);
+            return Convert.ToBase64String(randomNumber);
+
+        }
+
+        public async Task SetRefreshToken(User user, HttpContext httpContext)
+        {
+            string refreshToken = GenerateRandomRefreshToken();
+
+            DateTime expirationDate = DateTime.Now.AddDays(refreshTokenExpiry);
+
+            user.RefreshToken = refreshToken;
+            user.RefreshTokenExpiry = expirationDate;
+            await _context.SaveChangesAsync();
+
+            httpContext.Response.Cookies.Append("RefreshToken", refreshToken, new CookieOptions()
+            {
+                Expires = expirationDate,
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.None,
+            });
+        }
+
+        public async Task<string> RefreshToken(HttpContext httpContext)
+        {
+            User? user = await _context.Users.Where((u) => u.RefreshToken == httpContext.Request.Cookies["RefreshToken"]).FirstOrDefaultAsync();
+            if (user is null || user.RefreshToken is null)
+                throw new NotAuthorizedException("Bad refresh token");
+
+            if (DateTime.Now > user.RefreshTokenExpiry)
+                throw new NotAuthorizedException("Bad refresh token");
+
+            string refreshToken = GenerateRandomRefreshToken();
+            user.RefreshToken = refreshToken;
+            user.RefreshTokenExpiry = DateTime.Now.AddDays(refreshTokenExpiry);
+            await _context.SaveChangesAsync();
+
+            httpContext.Response.Cookies.Append("RefreshToken", refreshToken, new CookieOptions()
+            {
+                Expires = user.RefreshTokenExpiry,
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.None,
+            });
+
+            // do this last since jwt is short-lived
+            string jwt = GenerateToken(new UserProfile()
+            {
+                Id = user.Id,
+                Username = user.Username,
+                Name = user.Name,
+                Role = user.Role,
+            });
+            return jwt;
+        }
+
+        public async Task RevokeRefreshToken(HttpContext httpContext)
+        {
+            User? user = await _context.Users.Where((u) => u.RefreshToken == httpContext.Request.Cookies["RefreshToken"]).FirstOrDefaultAsync();
+            if (user is null || user.RefreshToken is null)
+                throw new NotAuthorizedException("Bad refresh token");
+
+            if (DateTime.Now > user.RefreshTokenExpiry)
+                throw new NotAuthorizedException("Bad refresh token");
+
+            user.RefreshTokenExpiry = new DateTime();
+            await _context.SaveChangesAsync();
         }
     }
 }

@@ -44,18 +44,20 @@ namespace WgDashboard.Api.Controllers
             }
             catch (BadRequestException bre)
                 { return BadRequest(bre.Message); }
-            if(user == null)
+            if(user is null)
                 return BadRequest("Incorrect username or password");
 
-            // success: return a new JWT token
-            UserProfile userProfile = new UserProfile()
+            // success: return a new access and refresh token
+            await _identity.SetRefreshToken(user, HttpContext);
+
+            // do this last since jwt is short-lived
+            string jwt = _identity.GenerateToken(new UserProfile()
             {
                 Id = user.Id,
-                Username = user.Username,
                 Name = user.Name,
-                Role = user.Role
-            };
-            string jwt = _identity.GenerateToken(userProfile);
+                Username = user.Username,
+                Role = user.Role,
+            });
             return Ok(jwt);
         }
 
@@ -141,26 +143,35 @@ namespace WgDashboard.Api.Controllers
         /// 
         /// </summary>
         /// <returns></returns>
-        [HttpGet("refresh")]
-        [Authorize(Roles = "admin,user")]
+        [HttpPost("refresh")]
+        [AllowAnonymous]
         [Produces("application/json")]
-        [Consumes("application/json")]
         public async Task<ActionResult> RefreshToken()
         {
-            User? user = await _identity.GetUserFromJwtAsync(HttpContext);
-            if (user is null)
-                return BadRequest("Bad JWT token");
-
-            UserProfile userProfile = new UserProfile()
+            string jwt;
+            try
             {
-                Id = user.Id,
-                Username = user.Username,
-                Name = user.Name,
-                Role = user.Role,
-            };
+                jwt = await _identity.RefreshToken(HttpContext);
+            }
+            catch (NotAuthorizedException nae)
+                { return Unauthorized(nae.Message); }
 
-            string jwt = _identity.GenerateToken(userProfile);
             return Ok(jwt);
+        }
+
+
+        [HttpDelete("revoke")]
+        [AllowAnonymous]
+        public async Task<ActionResult> RevokeRefreshToken()
+        {
+            try
+            {
+                await _identity.RevokeRefreshToken(HttpContext);
+            }
+            catch (NotAuthorizedException)
+                { return Unauthorized(); }
+
+            return NoContent();
         }
     }
 }

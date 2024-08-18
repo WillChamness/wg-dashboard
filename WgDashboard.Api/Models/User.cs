@@ -23,6 +23,9 @@ namespace WgDashboard.Api.Models
 
         [MaxLength(255)]
         public string? Name { get; set; }
+        public string? RefreshToken { get; set; }
+
+        public DateTime RefreshTokenExpiry { get; set; }
     }
 
     /// <summary>
