@@ -6,18 +6,19 @@ import dotenv
 import string
 import requests
 import jwt
+import urllib3
 
 class test_api_add_peers(unittest.TestCase):
     @staticmethod
     def _signup_and_login(url: str) -> tuple[str, dict[str, str]]:
         randint = str(random.randint(0, 10**9)) # in case you want to run the test without relaunching the entire project
-        response = requests.post(url + "/api/auth/signup", json={
+        response = requests.post(url + "/api/auth/signup", verify=False, json={
             "username": "myuser" + randint,
             "password": "mypassword",
             "name": "Test User"
         })
         assert 200 <= response.status_code and response.status_code <= 299
-        response = requests.post(url + "/api/auth/login", json={
+        response = requests.post(url + "/api/auth/login", verify=False, json={
             "username": "myuser" + randint,
             "password": "mypassword"
         })
@@ -43,7 +44,7 @@ class test_api_add_peers(unittest.TestCase):
     def _login(url: str, username: str, password: str) -> tuple[str, dict[str, str]]:
         assert len(username) > 0
         assert len(password) > 0
-        response = requests.post(url + "/api/auth/login", json={
+        response = requests.post(url + "/api/auth/login", verify=False, json={
             "username": username,
             "password": password
         })
@@ -65,14 +66,17 @@ class test_api_add_peers(unittest.TestCase):
         return (encoded_jwt, claims)
 
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    @classmethod
+    def setUpClass(cls):
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
         dotenv.load_dotenv()
-        self.base_url = os.getenv("API_URL")
-        self.jwt1, self.user1 = self._signup_and_login(self.base_url)
-        self.jwt2, self.user2 = self._signup_and_login(self.base_url)
-        self.admin_jwt, self.admin = self._login(self.base_url, "admin", "admin")
-        self.KEY_LENGTH = 44
+        cls.base_url = os.getenv("API_URL")
+        cls.session = requests.Session()
+        cls.session.verify = False
+        cls.jwt1, cls.user1 = cls._signup_and_login(cls.base_url)
+        cls.jwt2, cls.user2 = cls._signup_and_login(cls.base_url)
+        cls.admin_jwt, cls.admin = cls._login(cls.base_url, "admin", "admin")
+        cls.KEY_LENGTH = 44
 
 
     def test_add_keys(self):
@@ -87,7 +91,7 @@ class test_api_add_peers(unittest.TestCase):
             {"publickey": public_key3, "allowedips": allowed_ips, "ownerid": owner_id},
         ]
 
-        responses = [requests.post(
+        responses = [self.session.post(
             self.base_url + "/api/peers/",
             headers={"Authorization": "Bearer " + self.jwt1},
             json=body
@@ -101,14 +105,14 @@ class test_api_add_peers(unittest.TestCase):
     def test_key_already_exists(self):
         public_key = "".join(random.choices(string.ascii_letters + string.digits, k=self.KEY_LENGTH-1)) + "="
 
-        response = requests.post(self.base_url + "/api/peers",
+        response = self.session.post(self.base_url + "/api/peers",
             headers={"Authorization": "Bearer " + self.jwt1},
             json={"publickey": public_key, "allowedips": "127.0.0.1/32", "ownerid": self.user1["sid"]}
         )
         self.assertGreaterEqual(response.status_code, 200)
         self.assertLessEqual(response.status_code, 299)
 
-        response = requests.post(self.base_url + "/api/peers",
+        response = self.session.post(self.base_url + "/api/peers",
             headers={"Authorization": "Bearer " + self.jwt2},
             json={"public_key": public_key, "allowedips": "127.0.0.1/32", "ownerid": self.user2["sid"]}
         )
@@ -119,7 +123,7 @@ class test_api_add_peers(unittest.TestCase):
     def test_add_key_to_other_user(self):
         public_key = "".join(random.choices(string.ascii_letters + string.digits, k=self.KEY_LENGTH-1)) + "="
         
-        response = requests.post(self.base_url + "/api/peers",
+        response = self.session.post(self.base_url + "/api/peers",
             headers={"Authorization": "Bearer " + self.jwt2}, # unauthorized user
             json={"public_key": public_key, "allowedips": "127.0.0.1/32", "ownerid": self.user1["sid"]}
         )
@@ -130,7 +134,7 @@ class test_api_add_peers(unittest.TestCase):
     def test_add_key_as_admin(self):
         public_key = "".join(random.choices(string.ascii_letters + string.digits, k=self.KEY_LENGTH-1)) + "="
         
-        response = requests.post(self.base_url + "/api/peers",
+        response = self.session.post(self.base_url + "/api/peers",
             headers={"Authorization": "Bearer " + self.admin_jwt},
             json={"public_key": public_key, "allowedips": "127.0.0.1/32", "ownerid": self.user1["sid"]}
         )
@@ -155,7 +159,7 @@ class test_api_add_peers(unittest.TestCase):
         ]
 
         responses = [
-            requests.post(
+            self.session.post(
                 self.base_url + "/api/peers",
                 headers={"Authorization": "Bearer " + self.jwt2},
                 json=body
@@ -167,7 +171,7 @@ class test_api_add_peers(unittest.TestCase):
             self.assertGreaterEqual(response.status_code, 200)
             self.assertLessEqual(response.status_code, 299)
 
-        response = requests.post(
+        response = self.session.post(
             self.base_url + "/api/peers",
             headers={"Authorization": "Bearer " + self.jwt2},
             json={"publickey": public_key6, "allowedips": "127.0.0.1/32", "ownerid": self.user2["sid"]}
@@ -178,7 +182,7 @@ class test_api_add_peers(unittest.TestCase):
 
     def test_add_bad_publickey(self):
         public_key = "thisshouldntbeallowed"
-        response = requests.post(
+        response = self.session.post(
             self.base_url + "/api/peers",
             headers={"Authorization": "Bearer " + self.jwt1},
             json={"publickey": public_key, "allowedips": "127.0.0.1/32", "ownerid": self.user1["sid"]}
