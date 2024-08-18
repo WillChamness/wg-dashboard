@@ -67,6 +67,7 @@ else
 
 
 @code {
+    private readonly string BASE_USERS_PATH = "/api/users";
     List<UserProfile>? users;
 
     protected override async Task OnInitializedAsync()
@@ -77,9 +78,9 @@ else
 
     private async Task GetAllUsers()
     {
-        string uri = WebsiteConfig.GetSection("WireguardApiConfig").GetValue<string>("UserPath") ?? "/api/users";
+        string uri = BASE_USERS_PATH;
 
-        HttpResponseMessage response = await client.GetAsync(uri);
+        HttpResponseMessage response = await base.SendHttpRequest(uri, HttpMethod.Get);
         if (response.IsSuccessStatusCode)
         {
             List<UserProfile>? userProfiles = await response.Content.ReadFromJsonAsync<List<UserProfile>>(
@@ -91,8 +92,6 @@ else
                 users = userProfiles;
             await base.ClearErrorMessage();
         }
-        else if (response.StatusCode == HttpStatusCode.Unauthorized)
-            await base.LogoutUser();
         else
             await base.SetErrorMessage((await response.Content.ReadAsStringAsync()).Replace("\"", ""));
     }
@@ -103,10 +102,9 @@ else
         if (!confirmed)
             return;
         UserProfile user = users![userIndex]; // users validated not null by OnInitializedAsync() at this point
-        string uri = WebsiteConfig.GetSection("WireguardApiConfig").GetValue<string>("UserPath") ?? "/api/users";
-        uri += "/" + user.Id;
+        string uri = BASE_USERS_PATH + "/" + user.Id;
 
-        HttpResponseMessage response = await client.DeleteAsync(uri);
+        HttpResponseMessage response = await base.SendHttpRequest(uri, HttpMethod.Delete);
         if (response.IsSuccessStatusCode)
             await GetAllUsers(); // UI will be updated here. no need to do it again
         else if (response.StatusCode == HttpStatusCode.Unauthorized)
@@ -133,23 +131,14 @@ else
             Role = UserRoles.Admin,
         };
 
-        string? userRoute = WebsiteConfig.GetSection("WireguardApiConfig").GetValue<string>("UserPath");
-        if (userRoute is not null)
-            userRoute += "/" + updatedUser.Id;
-        else
-            userRoute = "/api/users/" + updatedUser.Id;
-
-        string json = JsonSerializer.Serialize(updatedUser);
-        HttpContent content = new StringContent(json, Encoding.UTF8, "application/json");
-        HttpResponseMessage response = await client.PutAsync(userRoute, content);
+        string userRoute = BASE_USERS_PATH + "/" + updatedUser.Id;
+        HttpResponseMessage response = await base.SendHttpRequest(userRoute, HttpMethod.Put, updatedUser);
 
         if (response.IsSuccessStatusCode)
         {
             users![userIndex].Role = "admin";
             await base.ClearErrorMessage();
         }
-        else if (response.StatusCode == HttpStatusCode.Unauthorized)
-            await base.LogoutUser();
         else
             await base.SetErrorMessage((await response.Content.ReadAsStringAsync()).Replace("\"", ""));
     }

@@ -7,6 +7,7 @@
 @inject AuthenticationStateProvider AuthStateProvider
 @inject IConfiguration WebsiteConfig
 @inject HttpClient client
+@inject IJSRuntime JSRuntime
 
 <h3>Login</h3>
 <hr />
@@ -36,18 +37,33 @@
                 <input type="submit" class="btn btn-primary" @onclick=SubmitLogin @onclick:preventDefault="true" value="Submit" />
             </div>
         </form>
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" value="" id="login-persist-checkbox" @onchange="() => loginPersist = !loginPersist"/>
+            <label class="form-check-label" for="login-persist-checkbox">Remember me for 7 days</label>
+        </div>
         <br />
     </div>
 </div>
 
 @code {
+
     private LoginRequest credentials = new LoginRequest();
     private bool loginFailed = false;
     private string loginFailedReason = "";
+    private bool loginPersist = false;
+
+    private class FetchResult
+    {
+        public int StatusCode { get; set; }
+        public string ResponseBody { get; set; } = "";
+        public bool IsSuccessStatusCode { get => 200 <= StatusCode && StatusCode <= 299; }
+    }
 
     private async void SubmitLogin()
     {
-        string jwt = ""; 
+        string BASE_URL = WebsiteConfig.GetSection("WireguardApiConfig").GetValue<string>("BaseUrl") ?? "http://localhost:3000";
+        const string BASE_AUTH_ROUTE = "/api/auth";
+        string? jwt = "";
         loginFailed = false;
 
         // guard against bad input
@@ -59,18 +75,12 @@
             return;
         }
 
-        string? authRoute = WebsiteConfig.GetSection("WireguardApiConfig").GetValue<string>("AuthPath");
-        if (authRoute is not null)
-            authRoute += "/login";
-        else
-            authRoute = "/api/auth/login";
+        string loginRoute = BASE_URL + BASE_AUTH_ROUTE + "/login";
 
-        var json = JsonSerializer.Serialize(credentials);
-        HttpContent content = new StringContent(json, Encoding.UTF8, "application/json");
-        HttpResponseMessage response = await client.PostAsync(authRoute, content);
-        if(response.IsSuccessStatusCode)
+        FetchResult fetchResult = await JSRuntime.InvokeAsync<FetchResult>("window.loginApi", loginRoute, credentials.Username, credentials.Password);
+        if(fetchResult.IsSuccessStatusCode)
         {
-            jwt = (await response.Content.ReadAsStringAsync()).Replace("\"", "");
+            jwt = fetchResult.ResponseBody.Replace("\"", "");
             await LocalStorage.SetItemAsync("WireguardApiToken", jwt);
             await AuthStateProvider.GetAuthenticationStateAsync();
             NavigationManager.NavigateTo("/");
@@ -78,7 +88,7 @@
         else
         {
             loginFailed = true;
-            loginFailedReason = (await response.Content.ReadAsStringAsync()).Replace("\"", "");
+            loginFailedReason = fetchResult.ResponseBody.Replace("\"", "");
             await InvokeAsync(StateHasChanged);
         }
 

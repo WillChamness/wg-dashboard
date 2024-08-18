@@ -4,6 +4,9 @@ using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.JSInterop;
 using System.Diagnostics.CodeAnalysis;
 using System.Net;
+using System.Net.Mime;
+using System.Text;
+using System.Text.Json;
 using WgDashboard.Website.Services;
 
 namespace WgDashboard.Website.Helpers
@@ -27,11 +30,16 @@ namespace WgDashboard.Website.Helpers
         [Inject, AllowNull]
         protected HttpClient client { get; init; }
 
+        private class FetchResults
+        {
+            public int StatusCode { get; set; }
+            public string ResponseBody { get; set; } = "";
+            public bool IsSuccessStatusCode { get => 200 <= StatusCode && StatusCode <= 299; }
+        }
+
         protected override async Task OnInitializedAsync()
         {
             if (AuthState.Expired)
-                await LogoutUser();
-            else
                 await RefreshJwt();
             await base.OnInitializedAsync();            
         }
@@ -62,29 +70,90 @@ namespace WgDashboard.Website.Helpers
         {
             await LocalStorage.RemoveItemAsync("WireguardApiToken");
             await AuthStateProvider.GetAuthenticationStateAsync();
-            NavigationManager.NavigateTo("/login", true);
+
+            string BASE_URL = WebsiteConfig.GetSection("WireguardApiConfig").GetValue<string>("BaseUrl") ?? "http://localhost:3000";
+            const string PATH = "/api/auth/revoke";
+            string revokePath = BASE_URL + PATH;
+
+            int statusCode = await JSRuntime.InvokeAsync<int>("window.revokeRefreshToken", revokePath);
+            if(statusCode < 200 || 299 < statusCode)
+            {
+                await SetErrorMessage("Could not logout! Maybe the server is offline?");
+            }
+            else
+                NavigationManager.NavigateTo("/login", true);
         }
 
         private async Task RefreshJwt()
         {
-            string url = WebsiteConfig.GetSection("WireguardApiConfig").GetValue<string>("AuthRoute")
-                ?? "/api/auth";
-            url += "/refresh";
+            string BASE_URL = WebsiteConfig.GetSection("WireguardApiConfig").GetValue<string>("BaseUrl") ?? "http://localhost:3000";
+            const string PATH = "/api/auth/refresh";
 
-            HttpResponseMessage response = await client.GetAsync(url);
+            string refreshPath = BASE_URL + PATH;
+
+            FetchResults response = await JSRuntime.InvokeAsync<FetchResults>("window.refreshToken", refreshPath);
+
             if (response.IsSuccessStatusCode)
             {
-                string jwt = (await response.Content.ReadAsStringAsync()).Replace("\"", "");
+                string jwt = response.ResponseBody.Replace("\"", "");
                 await LocalStorage.SetItemAsync("WireguardApiToken", jwt);
                 await AuthStateProvider.GetAuthenticationStateAsync();
             }
-            else if (response.StatusCode == HttpStatusCode.Unauthorized)
+            else if (response.StatusCode == (int)HttpStatusCode.Unauthorized)
                 await LogoutUser();
             else
             {
-                string error = await response.Content.ReadAsStringAsync();
+                string error = response.ResponseBody;
                 Console.WriteLine(error);
             }
+        }
+
+        protected async Task<HttpResponseMessage> SendHttpRequest<DtoType>(string route, HttpMethod httpMethod, DtoType requestDto)
+        {
+            var json = JsonSerializer.Serialize(requestDto);
+            HttpContent content = new StringContent(json, Encoding.UTF8, "application/json");
+            HttpRequestMessage request = new HttpRequestMessage(httpMethod, route) {
+                Content = content,
+            };
+            HttpResponseMessage response = await client.SendAsync(request);
+
+            // if expired, refresh and try again.
+            HttpStatusCode status = response.StatusCode;
+            if (status == HttpStatusCode.Unauthorized)
+            {
+                await RefreshJwt(); // this should short-circut code if cannot refresh
+                // don't do it recursively. might result in infinite loop
+                var request2 = new HttpRequestMessage(httpMethod, route) { Content = content };
+                HttpResponseMessage response2 = await client.SendAsync(request2);
+                if (response2.StatusCode == HttpStatusCode.Unauthorized) // sanity check
+                    await LogoutUser();
+                else
+                    response = response2;
+            }
+
+            return response;
+        }
+
+        protected async Task<HttpResponseMessage> SendHttpRequest(string route, HttpMethod httpMethod)
+        {
+            HttpRequestMessage request = new HttpRequestMessage(httpMethod, route);
+            HttpResponseMessage response = await client.SendAsync(request);
+
+            // if expired, refresh and try again.
+            HttpStatusCode status = response.StatusCode;
+            if (status == HttpStatusCode.Unauthorized)
+            {
+                await RefreshJwt(); // this should short-circut code if cannot refresh
+                // don't do it recursively. might result in infinite loop
+                var request2 = new HttpRequestMessage(httpMethod, route);
+                HttpResponseMessage response2 = await client.SendAsync(request2);
+                if (response2.StatusCode == HttpStatusCode.Unauthorized) // sanity check
+                    await LogoutUser();
+                else
+                    response = response2;
+            }
+
+            return response;
         }
     }
 }

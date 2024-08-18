@@ -61,6 +61,7 @@ else if(successMessage is not null)
 </div>
 
 @code {
+    private readonly string BASE_PEERS_PATH = "/api/peers";
     private class NewPeer
     {
         public string? PublicKey { get; set; } // required
@@ -107,8 +108,7 @@ else if(successMessage is not null)
             return;
         }
 
-        string peersPath = WebsiteConfig.GetSection("WireguardApiConfig").GetValue<string>("PeersPath")
-            ?? "/api/peers";
+        string peersPath = BASE_PEERS_PATH;
         HttpResponseMessage response = await client.PostAsJsonAsync(peersPath, peer);
 
         if (response.IsSuccessStatusCode)

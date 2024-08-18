@@ -11,7 +11,7 @@ builder.RootComponents.Add<HeadOutlet>("head::after");
 
 string baseUrl = builder.Configuration.GetSection("WireguardApiConfig").GetValue<string>("BaseUrl") ?? "http://localhost:3000";
 
-builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(baseUrl) });
+builder.Services.AddScoped(sp => new HttpClient() { BaseAddress = new Uri(baseUrl) });
 builder.Services.AddScoped<AuthenticationStateProvider, AuthStateProvider>();
 
 builder.Services.AddAuthorizationCore();

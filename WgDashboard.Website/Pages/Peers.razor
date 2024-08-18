@@ -115,6 +115,7 @@ else
     private List<PeerProfile>? peers = null;
     private List<PeerProfile> displayedPeers = new List<PeerProfile>();
     private SearchProfile profilesToSearch = new SearchProfile();
+    private readonly string BASE_PEERS_PATH = "/api/peers";
 
     private class SearchProfile
     {
@@ -131,22 +132,13 @@ else
 
     private async Task GetPeers()
     {
-        string? peersPath = null;
-        var apiConfig = WebsiteConfig.GetSection("WireguardApiConfig");
-
-        if (AuthState.Role == UserRoles.Admin)
+        string peersPath = BASE_PEERS_PATH;
+        if (AuthState.Role == UserRoles.User)
         {
-            peersPath = apiConfig.GetValue<string>("PeersPath");
-            peersPath ??= "/api/peers";
-        }
-        else
-        {
-            peersPath = apiConfig.GetValue<string>("PeersByOwnerIdPath");
-            peersPath ??= "/api/peers/owner";
-            peersPath += $"/{AuthState.Id}";
+            peersPath += "/owner/" + AuthState.Id;
         }
 
-        HttpResponseMessage response = await client.GetAsync(peersPath);
+        HttpResponseMessage response = await base.SendHttpRequest(peersPath, HttpMethod.Get);
 
         if (response.IsSuccessStatusCode)
         {
@@ -156,8 +148,6 @@ else
             ) ?? new List<PeerProfile>();
             displayedPeers = peers;
         }
-        else if (response.StatusCode == HttpStatusCode.Unauthorized)
-            await base.LogoutUser();
         else
         {
             peers = new List<PeerProfile>(); 
@@ -221,11 +211,9 @@ else
         PeerProfile peerToDelete = displayedPeers[displayedPeersIndex];
 
         int idToDelete = peerToDelete.Id;
-        string peersPath = WebsiteConfig.GetSection("WireguardApiConfig").GetValue<string>("PeersPath")
-            ?? "/api/peers";
-        peersPath += $"/{idToDelete}";
+        string peersPath = BASE_PEERS_PATH + "/" + idToDelete;
 
-        HttpResponseMessage response = await client.DeleteAsync(peersPath);
+        HttpResponseMessage response = await base.SendHttpRequest(peersPath, HttpMethod.Delete);
 
         if (response.IsSuccessStatusCode)
         {
@@ -233,8 +221,6 @@ else
             await GetPeers();
             await SearchProfiles(); // re-run user's search in case they searched before deleting peer
         }
-        else if (response.StatusCode == HttpStatusCode.Unauthorized)
-            await base.LogoutUser();
         else
             await base.SetErrorMessage((await response.Content.ReadAsStringAsync()).Replace("\"", ""));
 

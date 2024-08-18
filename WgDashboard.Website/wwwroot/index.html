@@ -15,7 +15,59 @@
             document.getElementById(id).scrollIntoView({
                 behavior: "smooth",
             });
-        }
+        };
+        window.loginApi = async function (url, username, password) {
+            try {
+                const response = await fetch(url, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    credentials: "include", // there is no equivalent to this in Blazor WASM. this is needed to set cookie in browser
+                    body: JSON.stringify({ "username": username, "password": password })
+                });
+                const responseBody = await response.json();
+                return {
+                    "StatusCode": response.status,
+                    "ResponseBody": responseBody,
+                }
+            }
+            catch(error) {
+                return {
+                    "StatusCode": 500,
+                    "ResponseBody": error 
+                };
+            }
+        };
+        window.refreshToken = async function (url) {
+            try {
+                const response = await fetch(url, {
+                    method: "POST",
+                    credentials: "include", // there is no equivalent to this in Blazor WASM. need this to send the RefreshToken cookie
+                });
+                const responseBody = await response.json();
+                return {
+                    "StatusCode": response.status,
+                    "ResponseBody": responseBody,
+                };
+            }
+            catch (error) {
+                return {
+                    "StatusCode": response.status,
+                    "ResponseBody": error,
+                };
+            }
+        };
+        window.revokeRefreshToken = async function (url) {
+            try {
+                const response = await fetch(url, {
+                    method: "DELETE",
+                    credentials: "include",
+                });
+                return response.status;
+            }
+            catch (error) {
+                return 500;
+            }
+        };
     </script>
 </head>
 
