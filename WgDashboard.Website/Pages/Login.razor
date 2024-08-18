@@ -37,10 +37,6 @@
                 <input type="submit" class="btn btn-primary" @onclick=SubmitLogin @onclick:preventDefault="true" value="Submit" />
             </div>
         </form>
-        <div class="form-check">
-            <input class="form-check-input" type="checkbox" value="" id="login-persist-checkbox" @onchange="() => loginPersist = !loginPersist"/>
-            <label class="form-check-label" for="login-persist-checkbox">Remember me for 7 days</label>
-        </div>
         <br />
     </div>
 </div>
@@ -50,7 +46,6 @@
     private LoginRequest credentials = new LoginRequest();
     private bool loginFailed = false;
     private string loginFailedReason = "";
-    private bool loginPersist = false;
 
     private class FetchResult
     {
