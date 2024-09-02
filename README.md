@@ -2,7 +2,7 @@
 
 # To do:
 - ~~Password hashing/salting~~
-- Create a proper token refresh endpoint
+- ~~Create a proper token refresh endpoint~~
 - Create website frontend for API
   - Use Blazor WASM
 - Actually communicate with Wireguard
