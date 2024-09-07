@@ -7,65 +7,9 @@ import string
 import requests
 import jwt
 import urllib3
+from signup_login import *
 
 class test_api_add_peers(unittest.TestCase):
-    @staticmethod
-    def _signup_and_login(url: str) -> tuple[str, dict[str, str]]:
-        randint = str(random.randint(0, 10**9)) # in case you want to run the test without relaunching the entire project
-        response = requests.post(url + "/api/auth/signup", verify=False, json={
-            "username": "myuser" + randint,
-            "password": "mypassword",
-            "name": "Test User"
-        })
-        assert 200 <= response.status_code and response.status_code <= 299
-        response = requests.post(url + "/api/auth/login", verify=False, json={
-            "username": "myuser" + randint,
-            "password": "mypassword"
-        })
-        assert 200 <= response.status_code and response.status_code <= 299
-
-        encoded_jwt = response.content.decode().replace("\"", "")
-        decoded_jwt = jwt.decode(encoded_jwt, algorithms=["HS256"], options={"verify_signature": False})
-        claims_names = (
-            "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/sid",
-            "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier",
-            "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name",
-            "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"
-        )
-        claims = dict()
-        for claim_name in claims_names:
-            claim = claim_name.split("/")[-1]
-            claims[claim] = decoded_jwt[claim_name]
-
-        return (encoded_jwt, claims)
-
-
-    @staticmethod
-    def _login(url: str, username: str, password: str) -> tuple[str, dict[str, str]]:
-        assert len(username) > 0
-        assert len(password) > 0
-        response = requests.post(url + "/api/auth/login", verify=False, json={
-            "username": username,
-            "password": password
-        })
-        assert 200 <= response.status_code and response.status_code <= 299
-
-        encoded_jwt = response.content.decode().replace("\"", "")
-        decoded_jwt = jwt.decode(encoded_jwt, algorithms=["HS256"], options={"verify_signature": False})
-        claims_names = (
-            "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/sid",
-            "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier",
-            "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name",
-            "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"
-        )
-        claims = dict()
-        for claim_name in claims_names:
-            claim = claim_name.split("/")[-1]
-            claims[claim] = decoded_jwt[claim_name]
-
-        return (encoded_jwt, claims)
-
-
     @classmethod
     def setUpClass(cls):
         urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -73,9 +17,9 @@ class test_api_add_peers(unittest.TestCase):
         cls.base_url = os.getenv("API_URL")
         cls.session = requests.Session()
         cls.session.verify = False
-        cls.jwt1, cls.user1 = cls._signup_and_login(cls.base_url)
-        cls.jwt2, cls.user2 = cls._signup_and_login(cls.base_url)
-        cls.admin_jwt, cls.admin = cls._login(cls.base_url, "admin", "admin")
+        cls.jwt1, cls.user1 = signup_and_login(cls.base_url)
+        cls.jwt2, cls.user2 = signup_and_login(cls.base_url)
+        cls.admin_jwt, cls.admin = login(cls.base_url, "admin", "admin")
         cls.KEY_LENGTH = 44
 
 
@@ -83,12 +27,11 @@ class test_api_add_peers(unittest.TestCase):
         public_key1 = "".join(random.choices(string.ascii_letters + string.digits, k=self.KEY_LENGTH-1)) + "="
         public_key2 = "".join(random.choices(string.ascii_letters + string.digits, k=self.KEY_LENGTH-1)) + "="
         public_key3 = "".join(random.choices(string.ascii_letters + string.digits, k=self.KEY_LENGTH-1)) + "="
-        allowed_ips = "127.0.0.1/32"
         owner_id = self.user1["sid"]
         reqs = [
-            {"publickey": public_key1, "allowedips": allowed_ips, "ownerid": owner_id},
-            {"publickey": public_key2, "allowedips": allowed_ips, "ownerid": owner_id},
-            {"publickey": public_key3, "allowedips": allowed_ips, "ownerid": owner_id},
+            {"publickey": public_key1, "ownerid": owner_id},
+            {"publickey": public_key2, "ownerid": owner_id},
+            {"publickey": public_key3, "ownerid": owner_id},
         ]
 
         responses = [self.session.post(
@@ -107,14 +50,14 @@ class test_api_add_peers(unittest.TestCase):
 
         response = self.session.post(self.base_url + "/api/peers",
             headers={"Authorization": "Bearer " + self.jwt1},
-            json={"publickey": public_key, "allowedips": "127.0.0.1/32", "ownerid": self.user1["sid"]}
+            json={"publickey": public_key, "ownerid": self.user1["sid"]}
         )
         self.assertGreaterEqual(response.status_code, 200)
         self.assertLessEqual(response.status_code, 299)
 
         response = self.session.post(self.base_url + "/api/peers",
             headers={"Authorization": "Bearer " + self.jwt2},
-            json={"public_key": public_key, "allowedips": "127.0.0.1/32", "ownerid": self.user2["sid"]}
+            json={"public_key": public_key, "ownerid": self.user2["sid"]}
         )
         self.assertGreaterEqual(response.status_code, 400)
         self.assertLessEqual(response.status_code, 499)
@@ -125,7 +68,7 @@ class test_api_add_peers(unittest.TestCase):
         
         response = self.session.post(self.base_url + "/api/peers",
             headers={"Authorization": "Bearer " + self.jwt2}, # unauthorized user
-            json={"public_key": public_key, "allowedips": "127.0.0.1/32", "ownerid": self.user1["sid"]}
+            json={"public_key": public_key, "ownerid": self.user1["sid"]}
         )
         self.assertGreaterEqual(response.status_code, 400)
         self.assertLessEqual(response.status_code, 499)
@@ -136,7 +79,7 @@ class test_api_add_peers(unittest.TestCase):
         
         response = self.session.post(self.base_url + "/api/peers",
             headers={"Authorization": "Bearer " + self.admin_jwt},
-            json={"public_key": public_key, "allowedips": "127.0.0.1/32", "ownerid": self.user1["sid"]}
+            json={"public_key": public_key, "ownerid": self.user1["sid"]}
         )
         self.assertGreaterEqual(response.status_code, 400)
         self.assertLessEqual(response.status_code, 499)
@@ -151,11 +94,11 @@ class test_api_add_peers(unittest.TestCase):
         public_key6 = "".join(random.choices(string.ascii_letters + string.digits, k=self.KEY_LENGTH-1)) + "="
 
         reqs = [
-            {"publickey": public_key1, "allowedips": "127.0.0.1/32", "ownerid": self.user2["sid"]},
-            {"publickey": public_key2, "allowedips": "127.0.0.1/32", "ownerid": self.user2["sid"]},
-            {"publickey": public_key3, "allowedips": "127.0.0.1/32", "ownerid": self.user2["sid"]},
-            {"publickey": public_key4, "allowedips": "127.0.0.1/32", "ownerid": self.user2["sid"]},
-            {"publickey": public_key5, "allowedips": "127.0.0.1/32", "ownerid": self.user2["sid"]},
+            {"publickey": public_key1, "ownerid": self.user2["sid"]},
+            {"publickey": public_key2, "ownerid": self.user2["sid"]},
+            {"publickey": public_key3, "ownerid": self.user2["sid"]},
+            {"publickey": public_key4, "ownerid": self.user2["sid"]},
+            {"publickey": public_key5, "ownerid": self.user2["sid"]},
         ]
 
         responses = [
@@ -174,7 +117,7 @@ class test_api_add_peers(unittest.TestCase):
         response = self.session.post(
             self.base_url + "/api/peers",
             headers={"Authorization": "Bearer " + self.jwt2},
-            json={"publickey": public_key6, "allowedips": "127.0.0.1/32", "ownerid": self.user2["sid"]}
+            json={"publickey": public_key6, "ownerid": self.user2["sid"]}
         )
         self.assertGreaterEqual(response.status_code, 400)
         self.assertLessEqual(response.status_code, 499)
@@ -185,7 +128,7 @@ class test_api_add_peers(unittest.TestCase):
         response = self.session.post(
             self.base_url + "/api/peers",
             headers={"Authorization": "Bearer " + self.jwt1},
-            json={"publickey": public_key, "allowedips": "127.0.0.1/32", "ownerid": self.user1["sid"]}
+            json={"publickey": public_key, "ownerid": self.user1["sid"]}
         )
         self.assertGreaterEqual(response.status_code, 400)
         self.assertLessEqual(response.status_code, 499)
