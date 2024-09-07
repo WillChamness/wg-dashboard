@@ -68,17 +68,73 @@ class TestApiAuth(unittest.TestCase):
             "password": "mypassword"
         }
         response = self.session.post(self.url + "/signup", json=credentials)
-        self.assertTrue(200 <= response.status_code and response.status_code <= 299)
-
         response = self.session.post(self.url + "/login", json=credentials)
         encoded_jwt = response.content.decode().replace("\"", "")
         decoded_jwt = jwt.decode(encoded_jwt, algorithms=["HS256"], options={"verify_signature": False})
         self.assertIsInstance(decoded_jwt, dict)
+
+        userid = -1
         for claim in self.claims_names:
             self.assertIsInstance(decoded_jwt[claim], str)
             if "sid" in claim:
-                int(decoded_jwt[claim])
+                userid = int(decoded_jwt[claim]) # check to make sure that the result is an int
 
+        # change password
+        response = self.session.patch(self.url + "/passwd/" + str(userid), json={
+                "id": userid,
+                "password": "mynewpassword"
+            },
+            headers={"Authorization": "Bearer " + encoded_jwt}
+        )
+        self.assertTrue(200 <= response.status_code and response.status_code <= 299)
+
+        # make sure new password works
+        self.session.post(self.url + "/login", json={
+            "username": credentials["username"],
+            "password": "mynewpassword"
+         })
+        self.assertTrue(200 <= response.status_code and response.status_code <= 299)
+
+        # make sure old password doesn't work
+        response = self.session.post(self.url + "/login", json=credentials)
+        self.assertTrue(400 <= response.status_code and response.status_code <= 499)
+
+
+
+    def test_unauthorized_password_change(self):
+        credentials1 = {
+            "username": self.rand_username(),
+            "password": "mypassword"
+        }
+        credentials2 = {
+            "username": self.rand_username(),
+            "password": "mypassword"
+        }
+
+        self.session.post(self.url + "/signup", json=credentials1)
+        response = self.session.post(self.url + "/login", json=credentials1)
+        encoded_jwt1 = response.content.decode().replace("\"", "")
+        decoded_jwt = jwt.decode(encoded_jwt1, algorithms=["HS256"], options={"verify_signature": False})
+        self.assertIsInstance(decoded_jwt, dict)
+        user1id = int(decoded_jwt[self.claims_names[0]])
+        
+        self.session.post(self.url + "/signup", json=credentials2)
+        response = self.session.post(self.url + "/login", json=credentials2)
+        encoded_jwt2 = response.content.decode().replace("\"", "")
+        decoded_jwt = jwt.decode(encoded_jwt1, algorithms=["HS256"], options={"verify_signature": False})
+        self.assertIsInstance(decoded_jwt, dict)
+        user2id = int(decoded_jwt[self.claims_names[0]])
+
+        # unauthorized password change
+        response = self.session.patch(self.url + "/passwd/" + str(user1id),
+            headers={"Authorization": "Bearer " + encoded_jwt2},
+            json={"id": user1id, "password": "mynewpassword"}
+        )
+        self.assertTrue(400 <= response.status_code and response.status_code <= 499)
+
+        # make sure user can still login
+        response = self.session.post(self.url + "/login", json=credentials1)
+        self.assertTrue(200 <= response.status_code and response.status_code <= 299)
 
 
 if __name__ == '__main__':
