@@ -68,6 +68,7 @@ class TestApiUsers(unittest.TestCase):
         self.assertGreaterEqual(response.status_code, 400)
         self.assertLessEqual(response.status_code, 499)
 
+
     def test_access_all_with_admin(self):
         response = self.session.get(self.url, headers={"Authorization": "Bearer " + self.admin_jwt})
         self.assertGreaterEqual(response.status_code, 200)
