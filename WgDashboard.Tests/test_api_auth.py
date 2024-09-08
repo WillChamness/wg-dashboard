@@ -137,5 +137,37 @@ class TestApiAuth(unittest.TestCase):
         self.assertTrue(200 <= response.status_code and response.status_code <= 299)
 
 
+    def test_admin_change_password(self):
+        admin_credentials = {"username": "admin", "password": "admin"}
+        credentials = {"username": self.rand_username(), "password": "mypassword"}
+
+        self.session.post(self.url + "/signup", json=credentials)
+        response = self.session.post(self.url + "/login", json=credentials)
+        encoded_jwt = response.content.decode().replace("\"", "")
+        decoded_jwt = jwt.decode(encoded_jwt, algorithms=["HS256"], options={"verify_signature": False})
+        userid = int(decoded_jwt[self.claims_names[0]])
+
+        response = self.session.post(self.url + "/login", json=admin_credentials)
+        admin_jwt = response.content.decode().replace("\"", "")
+
+        # change password
+        response = self.session.patch(self.url + "/passwd/" + str(userid),
+            headers={"Authorization": "Bearer " + admin_jwt},
+            json={"id": userid, "password": "mynewpassword"}
+        )
+        self.assertTrue(200 <= response.status_code and response.status_code <= 299)
+
+        # make sure new password works
+        response = self.session.post(self.url + "/login", 
+            json={"username": credentials["username"], "password": "mynewpassword"}
+        )
+        self.assertTrue(200 <= response.status_code and response.status_code <= 299)
+
+        # make sure old password doesn't work
+        response = self.session.post(self.url + "/login", json=credentials)
+        self.assertTrue(400 <= response.status_code and response.status_code <= 499)
+
+
+
 if __name__ == '__main__':
     unittest.main()
