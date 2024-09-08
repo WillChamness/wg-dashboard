@@ -24,11 +24,14 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="signup_login.py" />
-    <Compile Include="test_api_add_peers.py" />
     <Compile Include="test_api_auth.py">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="test_api_connection.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="test_api_peers_create.py" />
+    <Compile Include="test_api_peers_read.py">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="test_api_refresh.py">
